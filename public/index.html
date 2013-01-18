@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="cache-control" content="no-cache, must-revalidate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>JavaScript Simple Console</title>
+    <link rel="stylesheet" href="./g.css">
+	<style type="text/css">
+		#text{
+			width:100%;
+            background-color:#222;
+            color:rgb(39,254,19);
+            padding:10px 5px;
+            font-size:16px;
+            border:none;
+            font-weight:bold;
+            height: 100px;
+            max-height: 100px;
+		}
+        #result{
+            min-height: 100px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        p,a,h1{
+            color: #8cc84b;
+        }
+	</style>
+</head>
+<body>
+<div id="wrapper">
+    <h1>JavaScript Simple Console</h1>
+    <strong>输入调试代码</strong>
+		<p>
+			<textarea id="text">alert('Hello World')</textarea>
+		</p>
+        <p style="text-align:center;">
+            <button id="sub">运行代码</button>
+        </p>
+        <strong>终端执行结果</strong>
+        <p id="result">udefined</p>
+        <strong>页面使用方式</strong>
+        <p title="页面中加入此脚本,在电脑上打开此页面输入JS代码进行调试">
+            &lt;script src="http://<script>document.write(location.host)</script>/remote.js?{RTX_NAME}"&gt;&lt;/script&gt;</em>
+        </p>
+        <strong>后台监控</strong>
+        <p>
+            <a href="./manager.html" target="_blank">查看接入的控制台和调试页面</a>
+        </p>
+	</div>
+    <script type="text/javascript" src="http://code.jquery.com/jquery.js"></script>
+	<script type="text/javascript">
+        var username = location.search && encodeURIComponent(location.search.slice(1))
+        var source
+        function runScript(){
+            var script = encodeURIComponent($('#text').val())
+            if(!script || !username){
+                alert('执行脚本和监听用户都不能为空')
+                return
+            }
+            var xhr = new XMLHttpRequest()
+            xhr.onload = function(){
+                //TODO 服务端只允许一个响应客户端存在,最新请求的覆盖之前的避免相互影响
+            }
+            xhr.open('POST','./input?' + username + '=' + script, true)
+            xhr.send()
+        }
+        $(function(){
+            if(!username){
+                $('#wrapper').html('<h1>请在url上附加监听的用户,比如?simongfxu</h1>')
+                return
+            }
+            $('#text').focus()
+            //用于接受脚本执行结果
+            $('#sub').on('click', runScript)
+            source = new EventSource('./rev_polling?' + username)
+            source.onmessage = function(e){
+                console.log('执行结果:',e)
+                $('#result').text(e.data)
+            }
+        })
+	</script>
+</body>
+</html>

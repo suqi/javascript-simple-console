@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="cache-control" content="no-cache, must-revalidate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>后台监控-JavaScript Simple Console</title>
+    <link rel="stylesheet" href="./g.css">
+    <style type="text/css">
+        h1,p{color: #8cc84b;}
+    </style>
+</head>
+<body>
+<div id="wrapper">
+    <h1>后台监控</h1>
+    <strong>控制台(显示所有处于监听状态的控制台)</strong>
+    <div id="console"><p>暂时还没有控制台页面接入</p></div>
+    <strong>调试页面(显示所有打开的调试页面)</strong>
+    <div id="client"><p>暂时还没有调试页面接入</p></div>
+</div>
+<script src="http://code.jquery.com/jquery.js" type="text/javascript"></script>
+<script type="text/javascript">
+    $(function(){
+        var period = 3000
+        setTimeout(function(){
+            var func = arguments.callee
+            $.get('./manage',function(data){
+                var ret = JSON.parse(data)
+                console.log(ret)
+                if(ret.ret == 0){
+                    var html = []
+                    ret.console.forEach(function(cons){
+                        html.push('<p><em>', cons.username, '</em></p>')
+                    })
+                    $('#console').html(html.length?html.join(''):'<p>暂时还没有控制台页面接入</p>')
+
+                    html.length = 0
+                    ret.client.forEach(function(cons){
+                        html.push('<p><em>', cons.username, '</em><br><span>', cons.UA, '</span></p>')
+                    })
+                    $('#client').html(html.length?html.join(''):'<p>暂时还没有调试页面接入</p>')
+
+                    html.length = 0
+                    $('#message').text(JSON.stringify(ret.message))
+                }
+                setTimeout(func,period)
+            })
+        },0)
+    })
+</script>

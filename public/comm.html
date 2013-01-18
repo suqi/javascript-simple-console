@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+    <meta http-equiv="cache-control" content="no-cache, must-revalidate">
+</head>
+<body>
+	<!--此页面作为跨域通信的iframe使用,remote.js引入到测试页面-->
+	<script type="text/javascript">
+        ;~function(W,D){
+            if(!W.EventSource){
+                alert('EventSource Not Support')
+                return
+            }
+            var username = location.search.slice(1)
+            W.onmessage = function(e){
+                var xhr = new XMLHttpRequest()
+                xhr.onload = function(){
+                    console.log(this.responseText == 'ok'?'result has been sent!':'sent fail!!!')
+                }
+                xhr.open('POST', './output?' + username + '=' + e.data)
+                xhr.send()
+            }
+            var eventSource = new EventSource('./send_polling?' + username)
+            eventSource.onmessage = function(e){
+                console.log('script to run : ' + e.data);
+                try{
+                    //不支持网络页面与本地页面通信
+                    parent.postMessage(e.data, '*')
+                }catch(e){
+                    console.log('跨域通信失败:file:///????')
+                }
+            }
+        }(window,document)
+	</script>
+</body>
+</html>
