@@ -1,105 +1,106 @@
 var connect = require('connect')
 var app = connect.createServer(
-	//connect.bodyParser(),
-	//connect.logger(),
 	connect.static(__dirname + '/public')
 )
-//监听端口
-var PORT = 10102
-//Server轮训间隔
-var PERIOD = 300
+var PORT = 10102, PERIOD = 500
 //消息管理器,存储执行的脚本,执行结果以及请求时间
 var msgManager = {}
 //存储所有的长连接Response
 var responseQueue = []
-//存储所有的控制台页面Response
+/**
+ * LIMITATION
+ * for every user, one console controls multi pages.just because msgManager only stores one message and its execute result
+ * if you open another console for the same user, the previous connection will be closed
+ */
 var consoleQueue = []
 
 app.listen(PORT)
 
 /**
-  保存输入的调试脚本
-  格式:/input?simongfxu=console.log(123)
+ * send debug script content to server. request format : /input?simongfxu=console.log(123)
 **/
 app.use('/input', function(req,res){
-	res.setHeader('Content-Type','text/plain')
-	res.setHeader('Cache-Control','no-cache')
+    res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
+    var referer = req.headers['referer']
+    if(!referer || referer.split('?').length<2){
+        res.write(JSON.stringify({ret:-1}))
+        res.end()
+        return
+    }
 	try{
-		var info = req.url.split('?')[1].split('='), username = info[0], msg = decodeURIComponent(info[1])
-		msgManager[username] = { content : msg, time : Date.now()}
-        console.log('username : ', username)
-        console.log('receive message : ', msg)
-		res.write('ok')
+		var info = req.url.split('?')[1].split('='), username = decodeURIComponent(info[0]), msg = decodeURIComponent(info[1])
+		msgManager[username] = { content : msg, time : Date.now() }
+        console.log('get message from console : ', msg, ' by ', username)
+		res.write(JSON.stringify({ret:0, msg:msgManager[username], username:username}))
 	}catch(e){
-		res.write('fail')
+		res.write(JSON.stringify({ret:-2,msg:e.message}))
 	}
 	res.end()
 })
 
 /**
- * 保存远程执行结果
- * 格式:/output?simongfxu=undefined
+ * send executed result of the debug script to server. request format : /output?simongfxu=undefined
  */
 app.use('/output', function(req, res){
-    res.setHeader('Content-Type','text/plain')
-    res.setHeader('Cache-Control','no-cache')
+    res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
     try{
-        var info = req.url.split('?')[1].split('='), username = info[0], result = decodeURIComponent(info[1])
+        var info = req.url.split('?')[1].split('='), username = decodeURIComponent(info[0]), result = decodeURIComponent(info[1])
         msgManager[username].result = result
-        console.log('eval result : ', username, ' ',result)
-        res.write('ok')
+        console.log('remote execute result : ', result, ' by ', username)
+        res.write(JSON.stringify({ret:0,result:result, username:username}))
     }catch(e){
-        res.write('fail')
+        res.write(JSON.stringify({ret:-1,msg:e.message}))
     }
     res.end()
 })
 
 /**
-  由移动设备页面引入remote.js的comm.html发起长连接请求,获取server push的脚本消息
+ * an event stream for mobile page to get the debug script from server push, using postMessage to cross domain in comm.html
 **/
 app.use('/send_polling', function(req, res){
 	res.on('close',function(e){
         responseQueue.indexOf(res)>-1 && (responseQueue = responseQueue.filter(function(client){return client != res}))
-        console.log('connection closed from : ', res.username)
-        console.log('current client number : ', responseQueue.length)
+        console.log('debug connection closed from : ', res.details.username, '    ' ,responseQueue.length, ' connection current')
 	})
-	var username = req.url.split('?')[1]
+	var username = decodeURIComponent(req.url.split('?')[1])
     //must match : EventSource's response has a MIME type ("text/plain") that is not "text/event-stream". Aborting the connection.
-	res.setHeader('Content-Type','text/event-stream')
-	res.setHeader('Cache-Control','no-cache')
-	res.setHeader('Connection','keep-alive')
-	if(username && responseQueue.indexOf(res) == -1){
-		res.username = username
-        res.UA = req.headers['user-agent']
+    res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
+	if(username){
+		res.details = {username:username, requestOn:Date.now(), userAgent:req.headers['user-agent'], ip : req.connection.remoteAddress}
 		responseQueue.push(res)
-		console.log('handling request from : ', username)
-        console.log('total client number : ', responseQueue.length)
+		console.log('debug connection created for : ', username, '    ', responseQueue.length,' connection total')
 	}else{
-		res.write('没有指定唯一的用户名')
-		res.end()
+        res.write('data: username not found\n\n')
+        res.close()
 	}
 })
 
 /**
- * 由控制台页面index.html发起长连接请求,获取server push的脚本执行结果
+ * an event stream for console page to get the remote executed result.
  */
 app.use('/rev_polling', function(req, res){
     res.on('close',function(e){
         consoleQueue.indexOf(res)>-1 && (consoleQueue = consoleQueue.filter(function(client){return client != res}))
-        console.log('console connection closed from : ', res.username)
-        console.log('current console number : ', consoleQueue.length)
+        console.log('console connection close : ', res.details.username, '    ', consoleQueue.length,' connection total')
     })
-    var username = req.url.split('?')[1]
-    res.setHeader('Content-Type','text/event-stream')
-    res.setHeader('Cache-Control','no-cache')
-    res.setHeader('Connection','keep-alive')
-    if(username && consoleQueue.indexOf(res) == -1){
-        res.username = username
+    var username =  decodeURIComponent(req.url.split('?')[1])
+    //only accepts the latest console
+    consoleQueue = consoleQueue.filter(function(item){
+        if(item.details.username == username){
+            console.log('console connection closed : ', username)
+            item.write('data: CLOSE\n\n')
+            return false
+        }
+        return true
+    })
+    res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
+    if(username){
+        res.details = {username:username, requestOn: Date.now(), ip : req.connection.remoteAddress}
         consoleQueue.push(res)
-        console.log('total console number : ', consoleQueue.length)
+        console.log('console connection created for : ', username, '    ', consoleQueue.length, ' connection total')
     }else{
-        res.write('没有指定监听对象')
-        res.end()
+        res.write('data: username not found\n\n')
+        res.close()
     }
 })
 
@@ -108,32 +109,31 @@ app.use('/rev_polling', function(req, res){
  */
 app.use('/manage', function(req, res){
     res.writeHead(200,{'Content-type':'text/plain','Cache-Control':'no-cache','Connection':'keep-alive'})
-    var ret = {ret:0, console:[], client:[], message : msgManager, period : PERIOD, port : PORT}
-    consoleQueue.forEach(function(client){
-        ret.console.push({'username':client.username})
-    })
-    responseQueue.forEach(function(client){
-        ret.client.push({'username':client.username, 'UA' : client.UA})
-    })
     try{
+        var ret = {ret:0, console:[], client:[], message : msgManager, period : PERIOD, port : PORT}
+        consoleQueue.forEach(function(client){
+            ret.console.push({'username':client.details.username, 'ip':client.details.ip})
+        })
+        responseQueue.forEach(function(client){
+            ret.client.push({'username':client.details.username, 'userAgent' : client.details.userAgent,'ip':client.details.ip})
+        })
         res.write(JSON.stringify(ret))
     }catch (e){
         console.log(e)
-        res.write({ret:-1, message:e.message})
+        res.write(JSON.stringify({ret:-1, message:e.message}))
     }
     res.end()
 })
 
 var timer = setInterval(function(){
     responseQueue.forEach(function(client){
-        var userInfo = msgManager[client.username], msg = userInfo && userInfo.content?('data: ' + userInfo.content):': '
+        var userInfo = msgManager[client.details.username], msg = userInfo && userInfo.content?('data: ' + userInfo.content):': '
         client.write(msg + '\n\n')
     })
     consoleQueue.forEach(function(res){
-        var userInfo = msgManager[res.username], result = userInfo && userInfo.result?('data: ' + userInfo.result):': '
+        var userInfo = msgManager[res.details.username], result = userInfo && userInfo.result?('data: ' + userInfo.result):': '
         res.write(result + '\n\n')
     })
-    //消息发送完毕以后清空消息,不能在循环里清空,否则有的页面收不到消息
     for(var key in msgManager){
         msgManager[key].content = ''
         msgManager[key].result = ''

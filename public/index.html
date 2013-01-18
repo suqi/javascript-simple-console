@@ -41,7 +41,7 @@
             <button id="sub">运行代码</button>
         </p>
         <strong>终端执行结果</strong>
-        <p id="result">udefined</p>
+        <p id="result"></p>
         <strong>页面使用方式</strong>
         <p title="页面中加入此脚本,在电脑上打开此页面输入JS代码进行调试">
             &lt;script src="http://<script>document.write(location.host)</script>/remote.js?{RTX_NAME}"&gt;&lt;/script&gt;</em>
@@ -62,9 +62,6 @@
                 return
             }
             var xhr = new XMLHttpRequest()
-            xhr.onload = function(){
-                //TODO 服务端只允许一个响应客户端存在,最新请求的覆盖之前的避免相互影响
-            }
             xhr.open('POST','./input?' + username + '=' + script, true)
             xhr.send()
         }
@@ -78,8 +75,14 @@
             $('#sub').on('click', runScript)
             source = new EventSource('./rev_polling?' + username)
             source.onmessage = function(e){
-                console.log('执行结果:',e)
-                $('#result').text(e.data)
+                console.log('接受远程数据:',e)
+                if(e.data == 'CLOSE'){
+                    source.close()
+                    document.write('为了防止控制台过多干扰调试结果,同一时间段只允许使用一个控制台.\r\n刷新页面抢占控制台使用权')
+                    document.title = '-__-你被T了'
+                }else{
+                    $('#result').text(e.data)
+                }
             }
         })
 	</script>
