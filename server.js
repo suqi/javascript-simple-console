@@ -1,20 +1,18 @@
+/**
+ * DESIGN LIMITATION
+ * For every user, one console page can control multi debug pages.
+ * But if you open another console page for the same user, the previous console page will be closed.
+ * Just because msgManager only stores one script content and remote executed result for one user.
+ */
 var connect = require('connect')
 var app = connect.createServer(
 	connect.static(__dirname + '/public')
 )
-var PORT = 10102, PERIOD = 500
-//消息管理器,存储执行的脚本,执行结果以及请求时间
-var msgManager = {}
-//存储所有的长连接Response
-var responseQueue = []
-/**
- * LIMITATION
- * for every user, one console controls multi pages.just because msgManager only stores one message and its execute result
- * if you open another console for the same user, the previous connection will be closed
- */
-var consoleQueue = []
+var PORT = 10102, PERIOD = 500, msgManager = {},responseQueue = [],consoleQueue = []
 
 app.listen(PORT)
+
+console.log('Server is running on port ', PORT)
 
 /**
  * send debug script content to server. request format : /input?simongfxu=console.log(123)
@@ -105,7 +103,7 @@ app.use('/rev_polling', function(req, res){
 })
 
 /**
- * 后台监控页面,获取控制台页面和测试页面相关信息
+ * manage all the console pages and debug pages
  */
 app.use('/manage', function(req, res){
     res.writeHead(200,{'Content-type':'text/plain','Cache-Control':'no-cache','Connection':'keep-alive'})

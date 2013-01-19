@@ -53,22 +53,21 @@
 	</div>
     <script type="text/javascript" src="http://code.jquery.com/jquery.js"></script>
 	<script type="text/javascript">
-        var username = location.search && encodeURIComponent(location.search.slice(1))
-        var source
-        function runScript(){
-            var script = encodeURIComponent($('#text').val())
-            if(!script || !username){
-                alert('执行脚本和监听用户都不能为空')
-                return
-            }
-            var xhr = new XMLHttpRequest()
-            xhr.open('POST','./input?' + username + '=' + script, true)
-            xhr.send()
-        }
+        var username = location.search && encodeURIComponent(location.search.slice(1)), source
         $(function(){
             if(!username){
-                $('#wrapper').html('<h1>请在url上附加监听的用户,比如?simongfxu</h1>')
+                $('#wrapper').html('<p>请在url上附加监听的用户,比如?simongfxu</p>')
                 return
+            }
+            var runScript = function (){
+                var script = encodeURIComponent($('#text').val())
+                if(!script || !username){
+                    alert('执行脚本和监听用户都不能为空')
+                    return
+                }
+                var xhr = new XMLHttpRequest()
+                xhr.open('POST','./input?' + username + '=' + script, true)
+                xhr.send()
             }
             $('#text').focus()
             //用于接受脚本执行结果
@@ -78,7 +77,7 @@
                 console.log('接受远程数据:',e)
                 if(e.data == 'CLOSE'){
                     source.close()
-                    document.write('为了防止控制台过多干扰调试结果,同一时间段只允许使用一个控制台.\r\n刷新页面抢占控制台使用权')
+                    document.write('为了防止控制台过多干扰调试结果,同一时间段只允许使用一个控制台.\r\n刷新页面可以抢夺控制台使用权')
                     document.title = '-__-你被T了'
                 }else{
                     $('#result').text(e.data)

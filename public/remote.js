@@ -14,6 +14,6 @@
             evalResult = e.name + ' : ' + e.message
         }
 	    iframe.contentWindow.postMessage(encodeURIComponent(evalResult),"*")
-        console.log('script eval result : ', evalResult)
+        console.log('script executed result : ', evalResult)
     }
 }(window,document)
