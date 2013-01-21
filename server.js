@@ -9,7 +9,7 @@ var app = connect.createServer(
     connect.bodyParser(),
 	connect.static(__dirname + '/public')
 )
-var PORT = 10102, PERIOD = 500, msgManager = {},responseQueue = [],consoleQueue = []
+var PORT = 10102, PERIOD = 300, msgManager = {},responseQueue = [],consoleQueue = []
 
 app.listen(PORT)
 
@@ -57,20 +57,34 @@ app.use('/output', function(req, res){
  * an event stream for mobile page to get the debug script from server push, using postMessage to cross domain in comm.html
 **/
 app.use('/send_polling', function(req, res){
-	res.on('close',function(e){
+    var username = decodeURIComponent(req.url.split('?')[1])
+    res.on('close',function(e){
         responseQueue.indexOf(res)>-1 && (responseQueue = responseQueue.filter(function(client){return client != res}))
-        console.log('debug connection closed from : ', res.details.username, '    ' ,responseQueue.length, ' connection current')
-	})
-	var username = decodeURIComponent(req.url.split('?')[1])
+        //notify the console page when the last debug page is closed
+         var username = res.details.username
+         if(!responseQueue.some(function(client){return client.details.username == username})){
+             consoleQueue.filter(function(client){
+                return client.details.username == username
+             }).forEach(function(client){
+                client.write('data: No debug page found\n\n')
+             })
+         }
+        console.log('debug connection closed from : ', username, '    ' ,responseQueue.length, ' connection current')
+    })
     //must match : EventSource's response has a MIME type ("text/plain") that is not "text/event-stream". Aborting the connection.
     res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
 	if(username){
 		res.details = {username:username, requestOn:Date.now(), userAgent:req.headers['user-agent'], ip : req.connection.remoteAddress}
+        //notify the console page when the first debug page is ready
+        if(!responseQueue.some(function(res){return res.details.username == username})){
+            consoleQueue.filter(function(client){
+                return client.details.username == username
+            }).forEach(function(client){
+                client.write('data: Debug page is ready,try coding now\n\n')
+            })
+        }
 		responseQueue.push(res)
 		console.log('debug connection created for : ', username, '    ', responseQueue.length,' connection total')
-	}else{
-        res.write('data: username not found\n\n')
-        res.close()
 	}
 })
 
@@ -80,13 +94,13 @@ app.use('/send_polling', function(req, res){
 app.use('/rev_polling', function(req, res){
     res.on('close',function(e){
         consoleQueue.indexOf(res)>-1 && (consoleQueue = consoleQueue.filter(function(client){return client != res}))
-        console.log('console connection close : ', res.details.username, '    ', consoleQueue.length,' connection total')
+        console.log('console connection closed from : ', res.details.username, '    ', consoleQueue.length,' connection total')
     })
     var username =  decodeURIComponent(req.url.split('?')[1])
-    //only accepts the latest console
+    //only accepts the latest console, kick out the previous console pages
     consoleQueue = consoleQueue.filter(function(item){
         if(item.details.username == username){
-            console.log('console connection closed : ', username)
+            console.log('console connection was kicked out : ', username)
             item.write('data: CLOSE\n\n')
             return false
         }
@@ -97,9 +111,6 @@ app.use('/rev_polling', function(req, res){
         res.details = {username:username, requestOn: Date.now(), ip : req.connection.remoteAddress}
         consoleQueue.push(res)
         console.log('console connection created for : ', username, '    ', consoleQueue.length, ' connection total')
-    }else{
-        res.write('data: username not found\n\n')
-        res.close()
     }
 })
 
@@ -124,19 +135,17 @@ app.use('/manage', function(req, res){
     res.end()
 })
 
+/**
+ * avoid sending too much info in the timer
+ */
 var timer = setInterval(function(){
     responseQueue.forEach(function(client){
         var userInfo = msgManager[client.details.username]
         msg = userInfo && userInfo.content && client.write('data: ' + userInfo.content + '\n\n')
     })
     consoleQueue.forEach(function(res){
-        var debugPageOpened = responseQueue.filter(function(client){return client.details.username == res.details.username}).length > 0
-        if(debugPageOpened){
-            var userInfo = msgManager[res.details.username]
-            userInfo && userInfo.result && res.write('data: ' + userInfo.result + '\n\n')
-        }else{
-            res.write('data: No debug page found\n\n')
-        }
+        var userInfo = msgManager[res.details.username]
+        userInfo && userInfo.result && res.write('data: ' + userInfo.result + '\n\n')
     })
     for(var key in msgManager){
         msgManager[key].content = ''

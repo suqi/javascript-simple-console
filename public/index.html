@@ -53,6 +53,11 @@
         .CodeMirror-scroll{
             height: 560px !important;
         }
+        footer{
+            padding-top: 13px;
+            border-top: 1px solid #626557;
+            margin-top: 20px;
+        }
 	</style>
 </head>
 <body>
@@ -71,11 +76,9 @@
         <div id="desc">
             <strong>需要调试的页面引用下面的脚本,在PC上打开本页面输入代码远程执行并获取执行结果.</strong>
             <p>
-                &lt;script src="http://<script>document.write(location.host)</script>/remote.js?{RTX_NAME}"&gt;&lt;/script&gt;</em>
+                &lt;script src="http://<script>document.write(location.host)</script>/remote.js?<span id="rtx"></span>"&gt;&lt;/script&gt;</em>
             </p>
             <strong>你可以使用<a href="#" target="_blank" id="debug">这个页面</a>进行一些基本的测试工作</strong>
-            <p></p>
-            <strong>你可以使用<a href="./manager.html" target="_blank">这个页面</a>管理控制台和调试的页面</strong>
         </div>
         <footer><h4>by simongfxu</h4></footer>
     </div>
@@ -90,7 +93,7 @@
                 return
             }
             $('#debug').attr('href', 'tests/debug.html?' + username)
-
+            $('#rtx').text(username)
             var runScript = function (){
                 var script = editor.getValue()
                 if(!script || !username){
