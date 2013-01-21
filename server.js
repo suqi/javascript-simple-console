@@ -126,12 +126,17 @@ app.use('/manage', function(req, res){
 
 var timer = setInterval(function(){
     responseQueue.forEach(function(client){
-        var userInfo = msgManager[client.details.username], msg = userInfo && userInfo.content?('data: ' + userInfo.content):': '
-        client.write(msg + '\n\n')
+        var userInfo = msgManager[client.details.username]
+        msg = userInfo && userInfo.content && client.write('data: ' + userInfo.content + '\n\n')
     })
     consoleQueue.forEach(function(res){
-        var userInfo = msgManager[res.details.username], result = userInfo && userInfo.result?('data: ' + userInfo.result):': '
-        res.write(result + '\n\n')
+        var debugPageOpened = responseQueue.filter(function(client){return client.details.username == res.details.username}).length > 0
+        if(debugPageOpened){
+            var userInfo = msgManager[res.details.username]
+            userInfo && userInfo.result && res.write('data: ' + userInfo.result + '\n\n')
+        }else{
+            res.write('data: No debug page found\n\n')
+        }
     })
     for(var key in msgManager){
         msgManager[key].content = ''
