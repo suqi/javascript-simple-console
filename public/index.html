@@ -6,52 +6,82 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="format-detection" content="telephone=no" />
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>JavaScript Simple Console</title>
-    <link rel="stylesheet" href="./g.css">
-	<style type="text/css">
-		#text{
-			width:100%;
-            background-color:#222;
-            color:rgb(39,254,19);
-            padding:10px 5px;
-            font-size:16px;
-            border:none;
-            font-weight:bold;
-            height: 100px;
-            max-height: 100px;
-		}
-        #result{
-            min-height: 100px;
-            max-height: 200px;
-            overflow-y: auto;
+    <title>控制台 - JavaScript Simple Console</title>
+    <link rel="stylesheet" href="css/g.css">
+    <link rel="stylesheet" href="cm/codemirror.css">
+    <style type="text/css">
+        #console{
+            float: left;
+            height: 560px;
+            width: 500px;
+            border: 1px solid #eee;
         }
-        p,a,h1{
-            color: #8cc84b;
+        #output{
+            float: left;
+            height: 560px;
+            width: 500px;
+            border: 1px solid #eee;
+            background-color: #000;
+            padding: .4em;
+            white-space: pre;
+            color: rgb(40,255,20);
+            display: block;
+            resize: none;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        #op_zone{
+            margin-left: 5px;
+            width: 120px;
+            float: left;
+            height: 560px;
+        }
+        .clear{
+            clear: both;
+        }
+        #desc{
+            padding-top:20px;
+        }
+        #text{
+            display: none;
+        }
+        .CodeMirror{
+            height: 560px;
+            background-color: #fff;
+            cursor: text;
+        }
+        .CodeMirror-scroll{
+            height: 560px !important;
         }
 	</style>
 </head>
 <body>
-<div id="wrapper">
-    <h1>JavaScript Simple Console</h1>
-    <strong>输入调试代码</strong>
-		<p>
-			<textarea id="text">alert('Hello World')</textarea>
-		</p>
-        <p style="text-align:center;">
-            <button id="sub">运行代码</button>
-        </p>
-        <strong>终端执行结果</strong>
-        <p id="result"></p>
-        <strong>页面使用方式</strong>
-        <p title="页面中加入此脚本,在电脑上打开此页面输入JS代码进行调试">
-            &lt;script src="http://<script>document.write(location.host)</script>/remote.js?{RTX_NAME}"&gt;&lt;/script&gt;</em>
-        </p>
-        <strong>后台监控</strong>
-        <p>
-            <a href="./manager.html" target="_blank">查看接入的控制台和调试页面</a>
-        </p>
-	</div>
-    <script type="text/javascript" src="http://code.jquery.com/jquery.js"></script>
+    <div id="wrapper">
+        <header><h1>JavaScript Simple Console</h1></header>
+        <div id="console">
+            <textarea id="text" name="text">alert('Hello World')</textarea>
+        </div>
+        <div id="op_zone">
+            <div style="margin-top: 250px;">
+                <button id="sub">运行代码</button>
+            </div>
+        </div>
+        <textarea id="output" readonly></textarea>
+        <div class="clear"></div>
+        <div id="desc">
+            <strong>需要调试的页面引用下面的脚本,在PC上打开本页面输入代码远程执行并获取执行结果.</strong>
+            <p>
+                &lt;script src="http://<script>document.write(location.host)</script>/remote.js?{RTX_NAME}"&gt;&lt;/script&gt;</em>
+            </p>
+            <strong>你可以使用<a href="#" target="_blank" id="debug">这个页面</a>进行一些基本的测试工作</strong>
+            <p></p>
+            <strong>你可以使用<a href="./manager.html" target="_blank">这个页面</a>管理控制台和调试的页面</strong>
+        </div>
+        <footer><h4>by simongfxu</h4></footer>
+    </div>
+    <script type="text/javascript" src="js/jquery.js"></script>
+    <script src="cm/codemirror.js"></script>
+    <script src="cm/javascript.js"></script>
 	<script type="text/javascript">
         var username = location.search && encodeURIComponent(location.search.slice(1)), source
         $(function(){
@@ -59,16 +89,34 @@
                 $('#wrapper').html('<p>请在url上附加监听的用户,比如?simongfxu</p>')
                 return
             }
+            $('#debug').attr('href', 'tests/debug.html?' + username)
+
             var runScript = function (){
-                var script = encodeURIComponent($('#text').val())
+                var script = editor.getValue()
                 if(!script || !username){
                     alert('执行脚本和监听用户都不能为空')
                     return
                 }
-                var xhr = new XMLHttpRequest()
-                xhr.open('POST','./input?' + username + '=' + script, true)
-                xhr.send()
+                var xhr = new XMLHttpRequest(), form = new FormData()
+                form.append('content', encodeURIComponent(script))
+                xhr.onload = function(){
+                    $('#output').val('等待远程执行结果返回...')
+                }
+                xhr.open('POST','./input?' + username, true)
+                xhr.send(form)
             }
+
+            var editor = CodeMirror.fromTextArea($("#text")[0], {
+                mode: "javascript",
+                lineNumbers: true,
+                lineWrapping: true,
+                onCursorActivity: function() {
+                    editor.setLineClass(hlLine, null, null);
+                    hlLine = editor.setLineClass(editor.getCursor().line, null, "activeline");
+                }
+            })
+            var hlLine = editor.setLineClass(0, "activeline")
+
             $('#text').focus()
             //用于接受脚本执行结果
             $('#sub').on('click', runScript)
@@ -80,7 +128,7 @@
                     document.write('为了防止控制台过多干扰调试结果,同一时间段只允许使用一个控制台.\r\n刷新页面可以抢夺控制台使用权')
                     document.title = '-__-你被T了'
                 }else{
-                    $('#result').text(e.data)
+                    $('#output').val(decodeURIComponent(e.data))
                 }
             }
         })

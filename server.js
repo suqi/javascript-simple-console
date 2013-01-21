@@ -6,6 +6,7 @@
  */
 var connect = require('connect')
 var app = connect.createServer(
+    connect.bodyParser(),
 	connect.static(__dirname + '/public')
 )
 var PORT = 10102, PERIOD = 500, msgManager = {},responseQueue = [],consoleQueue = []
@@ -26,7 +27,7 @@ app.use('/input', function(req,res){
         return
     }
 	try{
-		var info = req.url.split('?')[1].split('='), username = decodeURIComponent(info[0]), msg = decodeURIComponent(info[1])
+		var info = req.url.split('?'), username = decodeURIComponent(info[1]), msg = decodeURIComponent(req.body.content)
 		msgManager[username] = { content : msg, time : Date.now() }
         console.log('get message from console : ', msg, ' by ', username)
 		res.write(JSON.stringify({ret:0, msg:msgManager[username], username:username}))
@@ -42,7 +43,7 @@ app.use('/input', function(req,res){
 app.use('/output', function(req, res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
     try{
-        var info = req.url.split('?')[1].split('='), username = decodeURIComponent(info[0]), result = decodeURIComponent(info[1])
+        var info = req.url.split('?'), username = decodeURIComponent(info[1]), result = req.body.result
         msgManager[username].result = result
         console.log('remote execute result : ', result, ' by ', username)
         res.write(JSON.stringify({ret:0,result:result, username:username}))
@@ -118,7 +119,7 @@ app.use('/manage', function(req, res){
         res.write(JSON.stringify(ret))
     }catch (e){
         console.log(e)
-        res.write(JSON.stringify({ret:-1, message:e.message}))
+        res.write(JSON.stringify({ret:-1, msg:e.message}))
     }
     res.end()
 })

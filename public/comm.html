@@ -14,12 +14,14 @@
             }
             var username = location.search.slice(1)
             W.onmessage = function(e){
-                var xhr = new XMLHttpRequest()
+                var xhr = new XMLHttpRequest(), form = new FormData()
                 xhr.onload = function(){
-                    console.log(this.responseText == 'ok'?'result has been sent!':'sent fail!!!')
+                    var ret = JSON.parse(this.responseText)
+                    console.log(ret.ret == 0?'result has been sent!':('sent fail!!!' + ret.msg))
                 }
-                xhr.open('POST', './output?' + username + '=' + e.data,true)
-                xhr.send()
+                form.append('result', e.data)
+                xhr.open('POST', './output?' + username,true)
+                xhr.send(form)
             }
             var eventSource = new EventSource('./send_polling?' + username)
             eventSource.onmessage = function(e){
