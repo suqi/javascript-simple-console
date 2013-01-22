@@ -84,7 +84,7 @@
         var username = location.search && encodeURIComponent(location.search.slice(1)), source
         $(function(){
             if(!username){
-                $('#wrapper').html('<p>请在url上附加监听的用户,比如?rtxname</p>')
+                $('#wrapper').html('<p>请在url上附加监听的用户,形式:?你的RTX名称</p>')
                 return
             }
             $('#debug').attr('href', 'tests/debug.html?' + username)
