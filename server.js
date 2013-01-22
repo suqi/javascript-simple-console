@@ -11,10 +11,6 @@ var app = connect.createServer(
 )
 var PORT = 10102, PERIOD = 300, msgManager = {},responseQueue = [],consoleQueue = []
 
-app.listen(PORT)
-
-console.log('Server is running on port ', PORT)
-
 /**
  * send debug script content to server. request format : /input?simongfxu=console.log(123)
 **/
@@ -134,6 +130,14 @@ app.use('/manage', function(req, res){
     }
     res.end()
 })
+
+app.use(function(req,res){
+    res.end('Page Not found')
+})
+
+app.listen(PORT)
+
+console.log('Server is running on port ', PORT)
 
 /**
  * CAUTION
