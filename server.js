@@ -58,7 +58,7 @@ app.use('/output', function(req, res){
 **/
 app.use('/send_polling', function(req, res){
     var username = decodeURIComponent(req.url.split('?')[1])
-    res.on('close',function(e){
+    req.on('close',function(e){
         responseQueue.indexOf(res)>-1 && (responseQueue = responseQueue.filter(function(client){return client != res}))
         //notify the console page when the last debug page is closed
          var username = res.details.username
@@ -92,7 +92,7 @@ app.use('/send_polling', function(req, res){
  * an event stream for console page to get the remote executed result.
  */
 app.use('/rev_polling', function(req, res){
-    res.on('close',function(e){
+    req.on('close',function(){
         consoleQueue.indexOf(res)>-1 && (consoleQueue = consoleQueue.filter(function(client){return client != res}))
         console.log('console connection closed from : ', res.details.username, '    ', consoleQueue.length,' connection total')
     })
@@ -101,7 +101,7 @@ app.use('/rev_polling', function(req, res){
     consoleQueue = consoleQueue.filter(function(item){
         if(item.details.username == username){
             console.log('console connection was kicked out : ', username)
-            item.write('data: CLOSE\n\n')
+            item.write('event:kicked\ndata: CLOSE\n\n')
             return false
         }
         return true
@@ -136,16 +136,18 @@ app.use('/manage', function(req, res){
 })
 
 /**
- * avoid sending too much info in the timer
+ * CAUTION
+ * 1.avoid sending too much info in the timer.
+ * 2.send comment when there is no data to send, other else the request close event will not trigger immediately
  */
 var timer = setInterval(function(){
     responseQueue.forEach(function(client){
         var userInfo = msgManager[client.details.username]
-        msg = userInfo && userInfo.content && client.write('data: ' + userInfo.content + '\n\n')
+        userInfo && userInfo.content ? client.write('data: ' + userInfo.content + '\n\n'):client.write(': \n\n')
     })
     consoleQueue.forEach(function(res){
         var userInfo = msgManager[res.details.username]
-        userInfo && userInfo.result && res.write('data: ' + userInfo.result + '\n\n')
+        userInfo && userInfo.result ? res.write('data: ' + userInfo.result + '\n\n'):res.write(': \n\n')
     })
     for(var key in msgManager){
         msgManager[key].content = ''

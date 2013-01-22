@@ -12,13 +12,11 @@
     <style type="text/css">
         #console{
             float: left;
-            height: 560px;
             width: 500px;
             border: 1px solid #eee;
         }
         #output{
             float: left;
-            height: 560px;
             width: 500px;
             border: 1px solid #eee;
             background-color: #000;
@@ -34,7 +32,6 @@
             margin-left: 5px;
             width: 120px;
             float: left;
-            height: 560px;
         }
         .clear{
             clear: both;
@@ -46,12 +43,11 @@
             display: none;
         }
         .CodeMirror{
-            height: 560px;
             background-color: #fff;
             cursor: text;
         }
-        .CodeMirror-scroll{
-            height: 560px !important;
+        .CodeMirror-scroll,.CodeMirror,#console,#output,#op_zone{
+            height: 500px !important;
         }
         footer{
             padding-top: 13px;
@@ -74,11 +70,10 @@
         <textarea id="output" readonly></textarea>
         <div class="clear"></div>
         <div id="desc">
-            <strong>需要调试的页面引用下面的脚本,在PC上打开本页面输入代码远程执行并获取执行结果.</strong>
+            <strong>需要调试的页面引用下面的脚本,在PC上打开本页面输入代码远程执行并获取执行结果.<a href="#" target="_blank" id="debug">点此</a>开始测试</strong>
             <p>
                 &lt;script src="http://<script>document.write(location.host)</script>/remote.js?<span id="rtx"></span>"&gt;&lt;/script&gt;</em>
             </p>
-            <strong>你可以使用<a href="#" target="_blank" id="debug">这个页面</a>进行一些基本的测试工作</strong>
         </div>
         <footer><h4>by simongfxu</h4></footer>
     </div>
@@ -89,7 +84,7 @@
         var username = location.search && encodeURIComponent(location.search.slice(1)), source
         $(function(){
             if(!username){
-                $('#wrapper').html('<p>请在url上附加监听的用户,比如?simongfxu</p>')
+                $('#wrapper').html('<p>请在url上附加监听的用户,比如?rtxname</p>')
                 return
             }
             $('#debug').attr('href', 'tests/debug.html?' + username)
@@ -123,17 +118,22 @@
             $('#text').focus()
             //用于接受脚本执行结果
             $('#sub').on('click', runScript)
+
             source = new EventSource('./rev_polling?' + username)
-            source.onmessage = function(e){
+            source.addEventListener('message', function(e){
                 console.log('接受远程数据:',e)
-                if(e.data == 'CLOSE'){
-                    source.close()
-                    document.write('为了防止控制台过多干扰调试结果,同一时间段只允许使用一个控制台.\r\n刷新页面可以抢夺控制台使用权')
-                    document.title = '-__-你被T了'
-                }else{
-                    $('#output').val(decodeURIComponent(e.data))
-                }
-            }
+                $('#output').val(decodeURIComponent(e.data))
+            })
+            source.addEventListener('kicked',function(e){
+                this.close()
+                document.write('为了防止控制台过多干扰调试结果,同一时间段只允许使用一个控制台.\r\n刷新页面可以抢夺控制台使用权')
+                document.title = '-__-你被T了'
+            })
+            setTimeout(function(){
+                source.close()
+                alert('为了节约服务器资源,每个长连接最多持续5分钟.刷新页面后继续使用')
+                location.reload()
+            }, 5*1000*60)
         })
 	</script>
 </body>
