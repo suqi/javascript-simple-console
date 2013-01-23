@@ -1,4 +1,5 @@
 javascript-simple-console
+
 =========================
 
 ## Principle
