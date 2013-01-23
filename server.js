@@ -3,6 +3,7 @@
  * For every user, one console page can control multi debug pages.
  * But if you open another console page for the same user, the previous console page will be closed.
  * Just because msgManager only stores one script content and remote executed result for one user.
+ * You'd better just send comment and real message in responseQueue, because Android does not support EventSource
  */
 var connect = require('connect')
 var app = connect.createServer(
@@ -142,7 +143,7 @@ console.log('Server is running on port ', PORT)
 /**
  * CAUTION
  * 1.avoid sending too much info in the timer.
- * 2.send comment when there is no data to send, other else the request close event will not trigger immediately
+ * 2.send comment to keep the connection alive, other else the request close event will not trigger immediately
  */
 var timer = setInterval(function(){
     responseQueue.forEach(function(client){

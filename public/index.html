@@ -89,6 +89,10 @@
             }
             $('#debug').attr('href', 'tests/debug.html?' + username)
             $('#rtx').text(username)
+
+            /**
+             * 提交控制台脚本
+             */
             var runScript = function (){
                 var script = editor.getValue()
                 if(!script || !username){
@@ -97,13 +101,23 @@
                 }
                 var xhr = new XMLHttpRequest(), form = new FormData()
                 form.append('content', encodeURIComponent(script))
-                xhr.onload = function(){
+                xhr.timeout = 5000
+                xhr.addEventListener('load', function(){
                     $('#output').val('等待远程执行结果返回...')
-                }
+                })
+                xhr.addEventListener('timeout', function(e){
+                    alert('请求超时')
+                })
+                xhr.addEventListener('error', function(e){
+                    console.log('请求出错')
+                })
                 xhr.open('POST','./input?' + username, true)
                 xhr.send(form)
             }
 
+            /**
+             * CodeMirror语法高亮
+             */
             var editor = CodeMirror.fromTextArea($("#text")[0], {
                 mode: "javascript",
                 lineNumbers: true,
@@ -115,10 +129,9 @@
             })
             var hlLine = editor.setLineClass(0, "activeline")
 
-            $('#text').focus()
-            //用于接受脚本执行结果
-            $('#sub').on('click', runScript)
-
+            /**
+             * Server Push,接受远程执行结果
+             */
             source = new EventSource('./rev_polling?' + username)
             source.addEventListener('message', function(e){
                 console.log('接受远程数据:',e)
@@ -134,6 +147,9 @@
                 alert('为了节约服务器资源,每个长连接最多持续5分钟.刷新页面后继续使用')
                 location.reload()
             }, 5*1000*60)
+
+            $('#text').focus()
+            $('#sub').on('click', runScript)
         })
 	</script>
 </body>

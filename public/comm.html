@@ -8,31 +8,60 @@
 <!--this page is used for receiving the server push messages-->
 	<script type="text/javascript">
         ;~function(W,D){
-            if(!W.EventSource){
-                alert('EventSource Not Support')
-                return
-            }
             var username = location.search.slice(1)
-            W.onmessage = function(e){
-                var xhr = new XMLHttpRequest(), form = new FormData()
-                xhr.onload = function(){
-                    var ret = JSON.parse(this.responseText)
-                    console.log(ret.ret == 0?'result has been sent!':('sent fail!!!' + ret.msg))
-                }
-                form.append('result', e.data)
-                xhr.open('POST', './output?' + username,true)
-                xhr.send(form)
-            }
-            var eventSource = new EventSource('./send_polling?' + username)
-            eventSource.onmessage = function(e){
-                console.log('script to run : ' + e.data);
+            //TODO local file test
+            var post_message = function(msg){
+                console.log('script to run : ' + msg);
                 try{
-                    //TODO local file test
-                    parent.postMessage(e.data, '*')
+                    parent.postMessage(msg, '*')
                 }catch(e){
                     console.log('post message failed : file:///????')
                 }
             }
+            W.addEventListener('message', function(e){
+                var xhr = new XMLHttpRequest(), form = new FormData()
+                xhr.addEventListener('load', function(){
+                    var ret = JSON.parse(this.responseText)
+                    console.log(ret.ret == 0?'result has been sent!':('sent fail!!!' + ret.msg))
+                })
+                form.append('result', e.data)
+                xhr.open('POST', './output?' + username,true)
+                xhr.send(form)
+            })
+
+            if(!W.EventSource){
+                alert('EventSource Not Support,XHR instead')
+                /**
+                 * get the real data from event source message.
+                 */
+                var DATA_PREFIX = 'data: ', DATA_PREFIX_LEN = DATA_PREFIX.length,  DATA_SUFFIX = '\n\n', DATA_SUFFIX_LEN = DATA_SUFFIX.length
+                var remove_meta_data = function(piece){
+                    if(typeof piece == 'string' && piece.slice(0, DATA_PREFIX_LEN) == DATA_PREFIX
+                            && piece.slice(-1*DATA_SUFFIX_LEN) == DATA_SUFFIX){
+                        return piece.slice(DATA_PREFIX_LEN,-1*DATA_SUFFIX_LEN)
+                    }
+                }
+                /**
+                 * Android does not support EventSource
+                 * @type {XMLHttpRequest}
+                 */
+                var es = new XMLHttpRequest(), received_len = 0
+                es.addEventListener('progress', function(e){
+                    var message = remove_meta_data(this.responseText.slice(received_len))
+                    message && post_message(message)
+                    received_len = this.responseText.length
+                })
+                es.open('GET','./send_polling?' + username, true)
+                es.setRequestHeader('Accept', 'text/event-stream')
+                es.setRequestHeader('Cache-Control', 'no-cache')
+                es.send()
+                return
+            }
+
+            var eventSource = new EventSource('./send_polling?' + username)
+            eventSource.addEventListener('message', function(e){
+                post_message(e.data)
+            })
         }(window,document)
 	</script>
 </body>
