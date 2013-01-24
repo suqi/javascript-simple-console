@@ -26,6 +26,9 @@ server is based on node.js and a lightweight framework connect.
 ## Deploy
   node server.js
   
+## Access
+http://127.0.0.1:10102/?simongfxu
+  
 
 
 
