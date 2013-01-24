@@ -143,11 +143,11 @@
             var hlLine = editor.setLineClass(0, "activeline")
 
             var closeConnection = function(msg){
-                document.title = '-__-你被T了'
                 //TODO 不知道为什么服务器的close事件不一定能正确响应,更像是在响应timeout事件
                 source.close()
                 source = null
                 document.write(msg)
+                document.title = '-__-你被T了'
             }
 
             /**
