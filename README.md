@@ -20,8 +20,6 @@ server is based on node.js and a lightweight framework connect.
 * nodejs
 * connect
 
-## Install
-  npm install
 
 ## Deploy
   node server.js
