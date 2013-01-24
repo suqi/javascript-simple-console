@@ -8,6 +8,7 @@
 <!--this page is used for receiving the server push messages-->
 	<script type="text/javascript">
         ;~function(W,D){
+            if(parent == W) return
             var username = location.search.slice(1)
             //TODO local file test
             var post_message = function(msg){
@@ -26,7 +27,8 @@
             var reload = function(obj){
                 setTimeout(function(){
                     obj.abort?obj.abort():obj.close()
-                    alert('Every connection lasts 5 minutes, refresh to use')
+                    obj = null
+                    alert('Every connection lasts 5 minutes for performance consideration, you can refresh to use')
                     location.reload()
                 }, 5*1000*60)
             }

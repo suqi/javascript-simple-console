@@ -53,7 +53,7 @@ app.use('/output', function(req, res){
 app.use('/send_polling', function(req, res){
     var username = req.url.indexOf('?')>-1 && decodeURIComponent(req.url.split('?')[1])
 	if(username){
-        req.on('close',function(e){
+        res.socket.on('close',function(e){
             responseQueue.indexOf(res)>-1 && (responseQueue = responseQueue.filter(function(client){return client != res}))
             //notify the console page when the last debug page is closed
             var username = res.details.username
@@ -62,7 +62,7 @@ app.use('/send_polling', function(req, res){
                     return client.details.username == username
                 }).forEach(function(client){
                         client.write('data: No debug page found\n\n')
-                    })
+                })
             }
             console.log('debug connection closed from : ', username, '    ' ,responseQueue.length, ' connection current')
         })
@@ -90,7 +90,7 @@ app.use('/send_polling', function(req, res){
 app.use('/rev_polling', function(req, res){
     var username =  req.url.indexOf('?')>-1 && req.url.split('?')[1]
     if(username){
-        req.on('close',function(){
+        res.socket.on('close',function(){
             consoleQueue.indexOf(res)>-1 && (consoleQueue = consoleQueue.filter(function(client){return client != res}))
             console.log('console connection closed from : ', res.details.username, '    ', consoleQueue.length,' connection total')
         })

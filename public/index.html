@@ -137,6 +137,14 @@
             })
             var hlLine = editor.setLineClass(0, "activeline")
 
+            var closeConnection = function(msg){
+                document.title = '-__-你被T了'
+                //TODO 不知道为什么服务器的close事件不一定能正确响应,更像是在响应timeout事件
+                source.close()
+                source = null
+                document.write(msg)
+            }
+
             /**
              * Server Push,接受远程执行结果
              */
@@ -146,19 +154,13 @@
                 $('#output').val(decodeURIComponent(e.data))
             })
             source.addEventListener('kicked',function(e){
-                this.close()
-                document.write('为了防止控制台过多干扰调试结果,同一时间段只允许使用一个控制台.刷新页面可以抢夺当前用户的控制权')
-                document.title = '-__-你被T了'
+                closeConnection('为了防止控制台过多干扰调试结果,同一时间段只允许使用一个控制台.刷新页面可以抢夺当前用户的控制权')
             })
             source.addEventListener('max', function(e){
-                this.close()
-                document.write('当前访问人数超出了服务器限制.刷新页面可继续使用')
-                document.title = '-__-你被T了'
+                closeConnection('当前访问人数超出了服务器限制.刷新页面可继续使用')
             })
             setTimeout(function(){
-                source.close()
-                alert('为了节约服务器资源,每个长连接最多持续5分钟.刷新页面后继续使用')
-                location.reload()
+                closeConnection('为了节约服务器资源,每个长连接最多持续5分钟.刷新页面后继续使用')
             }, 5*1000*60)
 
             $('#text').focus()

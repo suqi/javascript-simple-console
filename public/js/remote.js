@@ -3,7 +3,7 @@
     var srcInfo = scripts[scripts.length-1].src
     var iframe = D.createElement('iframe')
     iframe.style.display = 'none'
-    iframe.src = srcInfo.replace('remote.js','comm.html')
+    iframe.src = srcInfo.replace('js/remote.js','comm.html')
     D.body.appendChild(iframe)
     D.title = 'Debugging Mode Works'
 
