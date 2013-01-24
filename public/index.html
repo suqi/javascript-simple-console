@@ -125,6 +125,14 @@
                 onCursorActivity: function() {
                     editor.setLineClass(hlLine, null, null);
                     hlLine = editor.setLineClass(editor.getCursor().line, null, "activeline");
+                },
+                onKeyEvent : function(self,e){
+                    if(e.type == 'keydown'){
+                        if(e.ctrlKey && e.which == 13){
+                            e.preventDefault()
+                            runScript()
+                        }
+                    }
                 }
             })
             var hlLine = editor.setLineClass(0, "activeline")
@@ -139,7 +147,12 @@
             })
             source.addEventListener('kicked',function(e){
                 this.close()
-                document.write('为了防止控制台过多干扰调试结果,同一时间段只允许使用一个控制台.\r\n刷新页面可以抢夺控制台使用权')
+                document.write('为了防止控制台过多干扰调试结果,同一时间段只允许使用一个控制台.刷新页面可以抢夺当前用户的控制权')
+                document.title = '-__-你被T了'
+            })
+            source.addEventListener('max', function(e){
+                this.close()
+                document.write('当前访问人数超出了服务器限制.刷新页面可继续使用')
                 document.title = '-__-你被T了'
             })
             setTimeout(function(){

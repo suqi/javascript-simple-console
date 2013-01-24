@@ -7,6 +7,8 @@
     D.body.appendChild(iframe)
     D.title = 'Debugging Mode Works'
 
+
+
     //thanks to jsconsole.com
     function sortci(a, b) {
         return a.toLowerCase() < b.toLowerCase() ? -1 : 1;
@@ -93,7 +95,7 @@
         return json;
     }
 
-	W.onmessage = function(e){
+	W.addEventListener('message', function(e){
         var evalResult
         try{
             evalResult = eval(e.data)
@@ -102,9 +104,6 @@
         }
         var msg = encodeURIComponent(stringify(evalResult))
         console.log('script executed result : ', evalResult, msg)
-
         iframe.contentWindow.postMessage(msg,"*")
-
-        //TODO send to server only if this is a mobile page
-    }
+    })
 }(window,document)

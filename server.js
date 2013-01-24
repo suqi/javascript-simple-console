@@ -10,19 +10,16 @@ var app = connect.createServer(
     connect.bodyParser(),
 	connect.static(__dirname + '/public')
 )
-var PORT = 10102, PERIOD = 300, msgManager = {},responseQueue = [],consoleQueue = []
+
+var PORT = 10102, PERIOD = 300, MAX_CONSOLE_NUM = 200, MAX_DEBUG_NUM = MAX_CONSOLE_NUM * 5, MAX_INFO = 'event: max\ndata: too many connections\n\n'
+
+var msgManager = {},responseQueue = [],consoleQueue = []
 
 /**
  * send debug script content to server. request format : /input?simongfxu=console.log(123)
 **/
 app.use('/input', function(req,res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
-    var referer = req.headers['referer']
-    if(!referer || referer.split('?').length<2){
-        res.write(JSON.stringify({ret:-1}))
-        res.end()
-        return
-    }
 	try{
 		var info = req.url.split('?'), username = decodeURIComponent(info[1]), msg = decodeURIComponent(req.body.content)
 		msgManager[username] = { content : msg, time : Date.now() }
@@ -54,23 +51,23 @@ app.use('/output', function(req, res){
  * an event stream for mobile page to get the debug script from server push, using postMessage to cross domain in comm.html
 **/
 app.use('/send_polling', function(req, res){
-    var username = decodeURIComponent(req.url.split('?')[1])
-    req.on('close',function(e){
-        responseQueue.indexOf(res)>-1 && (responseQueue = responseQueue.filter(function(client){return client != res}))
-        //notify the console page when the last debug page is closed
-         var username = res.details.username
-         if(!responseQueue.some(function(client){return client.details.username == username})){
-             consoleQueue.filter(function(client){
-                return client.details.username == username
-             }).forEach(function(client){
-                client.write('data: No debug page found\n\n')
-             })
-         }
-        console.log('debug connection closed from : ', username, '    ' ,responseQueue.length, ' connection current')
-    })
-    //must match : EventSource's response has a MIME type ("text/plain") that is not "text/event-stream". Aborting the connection.
-    res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
+    var username = req.url.indexOf('?')>-1 && decodeURIComponent(req.url.split('?')[1])
 	if(username){
+        req.on('close',function(e){
+            responseQueue.indexOf(res)>-1 && (responseQueue = responseQueue.filter(function(client){return client != res}))
+            //notify the console page when the last debug page is closed
+            var username = res.details.username
+            if(!responseQueue.some(function(client){return client.details.username == username})){
+                consoleQueue.filter(function(client){
+                    return client.details.username == username
+                }).forEach(function(client){
+                        client.write('data: No debug page found\n\n')
+                    })
+            }
+            console.log('debug connection closed from : ', username, '    ' ,responseQueue.length, ' connection current')
+        })
+        //must match : EventSource's response has a MIME type ("text/plain") that is not "text/event-stream". Aborting the connection.
+        res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
 		res.details = {username:username, requestOn:Date.now(), userAgent:req.headers['user-agent'], ip : req.connection.remoteAddress}
         //notify the console page when the first debug page is ready
         if(!responseQueue.some(function(res){return res.details.username == username})){
@@ -82,32 +79,36 @@ app.use('/send_polling', function(req, res){
         }
 		responseQueue.push(res)
 		console.log('debug connection created for : ', username, '    ', responseQueue.length,' connection total')
-	}
+	}else{
+        res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'close'})
+    }
 })
 
 /**
  * an event stream for console page to get the remote executed result.
  */
 app.use('/rev_polling', function(req, res){
-    req.on('close',function(){
-        consoleQueue.indexOf(res)>-1 && (consoleQueue = consoleQueue.filter(function(client){return client != res}))
-        console.log('console connection closed from : ', res.details.username, '    ', consoleQueue.length,' connection total')
-    })
-    var username =  decodeURIComponent(req.url.split('?')[1])
-    //only accepts the latest console, kick out the previous console pages
-    consoleQueue = consoleQueue.filter(function(item){
-        if(item.details.username == username){
-            console.log('console connection was kicked out : ', username)
-            item.write('event:kicked\ndata: CLOSE\n\n')
-            return false
-        }
-        return true
-    })
-    res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
+    var username =  req.url.indexOf('?')>-1 && req.url.split('?')[1]
     if(username){
+        req.on('close',function(){
+            consoleQueue.indexOf(res)>-1 && (consoleQueue = consoleQueue.filter(function(client){return client != res}))
+            console.log('console connection closed from : ', res.details.username, '    ', consoleQueue.length,' connection total')
+        })
+        //only accepts the latest console, kick out the previous console pages
+        consoleQueue = consoleQueue.filter(function(item){
+            if(item.details.username == username){
+                console.log('console connection was kicked out : ', username)
+                item.write('event: kicked\ndata: you are kicked by somebody.\n\n')
+                return false
+            }
+            return true
+        })
+        res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
         res.details = {username:username, requestOn: Date.now(), ip : req.connection.remoteAddress}
         consoleQueue.push(res)
         console.log('console connection created for : ', username, '    ', consoleQueue.length, ' connection total')
+    }else{
+        res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'close'})
     }
 })
 
@@ -145,10 +146,19 @@ console.log('Server is running on port ', PORT)
  * 1.avoid sending too much info in the timer.
  * 2.send comment to keep the connection alive, other else the request close event will not trigger immediately
  */
-var timer = setInterval(function(){
+;~function(){
+    //connection number control
+    consoleQueue.length > MAX_CONSOLE_NUM && consoleQueue.splice(0,consoleQueue.length - MAX_CONSOLE_NUM).forEach(function(res){
+        res.write(MAX_INFO)
+    })
+    responseQueue.length > MAX_DEBUG_NUM && responseQueue.splice(0,responseQueue.length - MAX_DEBUG_NUM).forEach(function(res){
+        res.write(MAX_INFO)
+    })
+
     responseQueue.forEach(function(client){
         var userInfo = msgManager[client.details.username]
-        userInfo && userInfo.content ? client.write('data: ' + userInfo.content + '\n\n'):client.write(': \n\n')
+        //debug page maybe android,encode script content's \n\n for XHR,EventSource has no need to encode
+        userInfo && userInfo.content ? client.write('data: ' + encodeURIComponent(userInfo.content) + '\n\n'):client.write(': \n\n')
     })
     consoleQueue.forEach(function(res){
         var userInfo = msgManager[res.details.username]
@@ -158,4 +168,6 @@ var timer = setInterval(function(){
         msgManager[key].content = ''
         msgManager[key].result = ''
     }
-}, PERIOD)
+    var self = arguments.callee
+    setTimeout(self, PERIOD)
+}()

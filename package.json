@@ -1,0 +1,9 @@
+{
+    "name": "javascript-simple-console",
+    "description": "a console target for mobile debug usage",
+    "version": "0.2.0",
+    "private": false,
+    "dependencies": {
+        "connect": "2.7.2"
+    }
+}

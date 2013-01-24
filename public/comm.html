@@ -12,12 +12,25 @@
             //TODO local file test
             var post_message = function(msg){
                 console.log('script to run : ' + msg);
+                if(!msg) return
                 try{
-                    parent.postMessage(msg, '*')
+                    parent.postMessage(decodeURIComponent(msg), '*')
                 }catch(e){
                     console.log('post message failed : file:///????')
                 }
             }
+            var closeConnection = function(obj){
+                obj.abort?obj.abort():obj.close()
+                console.log('******** server connections exceed max limitation ********')
+            }
+            var reload = function(obj){
+                setTimeout(function(){
+                    obj.abort?obj.abort():obj.close()
+                    alert('Every connection lasts 5 minutes, refresh to use')
+                    location.reload()
+                }, 5*1000*60)
+            }
+            //send parent's executed result
             W.addEventListener('message', function(e){
                 var xhr = new XMLHttpRequest(), form = new FormData()
                 xhr.addEventListener('load', function(){
@@ -30,16 +43,23 @@
             })
 
             if(!W.EventSource){
-                alert('EventSource Not Support,XHR instead')
+                alert('EventSource is not support, the replacement is XMLHttpRequest now.')
                 /**
-                 * get the real data from event source message.
+                 * get the message object from server push message, id,retry,event,data ...
                  */
-                var DATA_PREFIX = 'data: ', DATA_PREFIX_LEN = DATA_PREFIX.length,  DATA_SUFFIX = '\n\n', DATA_SUFFIX_LEN = DATA_SUFFIX.length
-                var remove_meta_data = function(piece){
-                    if(typeof piece == 'string' && piece.slice(0, DATA_PREFIX_LEN) == DATA_PREFIX
-                            && piece.slice(-1*DATA_SUFFIX_LEN) == DATA_SUFFIX){
-                        return piece.slice(DATA_PREFIX_LEN,-1*DATA_SUFFIX_LEN)
+                var get_message_object = function(piece){
+                    var DATA_PREFIX = 'data: ', DATA_PREFIX_LEN = DATA_PREFIX.length,  DATA_SUFFIX = '\n\n', DATA_SUFFIX_LEN = DATA_SUFFIX.length
+                    var NAMED_EVENT = 'event: ', NAMED_EVENT_LEN = NAMED_EVENT.length
+                    if(typeof piece == 'string' && piece.slice(-1*DATA_SUFFIX_LEN) == DATA_SUFFIX){
+                        var obj = {}, pArray = piece.slice(0,-2).split('\n')
+                        pArray.forEach(function(item){
+                            var info = item.split(':')
+                            info[0] && (obj[info[0]] = info[1] && info[1].trim())
+                        })
+                        obj.data && (obj.data = decodeURIComponent(obj.data))
+                        return obj
                     }
+                    return {}
                 }
                 /**
                  * Android does not support EventSource
@@ -47,14 +67,19 @@
                  */
                 var es = new XMLHttpRequest(), received_len = 0
                 es.addEventListener('progress', function(e){
-                    var message = remove_meta_data(this.responseText.slice(received_len))
-                    message && post_message(message)
+                    var message = get_message_object(this.responseText.slice(received_len))
+                    if(message.event == 'max'){
+                        closeConnection(this)
+                    }else{
+                        post_message(message.data)
+                    }
                     received_len = this.responseText.length
                 })
                 es.open('GET','./send_polling?' + username, true)
                 es.setRequestHeader('Accept', 'text/event-stream')
                 es.setRequestHeader('Cache-Control', 'no-cache')
                 es.send()
+                reload(es)
                 return
             }
 
@@ -62,6 +87,10 @@
             eventSource.addEventListener('message', function(e){
                 post_message(e.data)
             })
+            eventSource.addEventListener('max', function(e){
+                closeConnection(this)
+            })
+            reload(eventSource)
         }(window,document)
 	</script>
 </body>
