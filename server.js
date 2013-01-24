@@ -11,7 +11,7 @@ var app = connect.createServer(
 	connect.static(__dirname + '/public')
 )
 
-var PORT = 10102, PERIOD = 300, MAX_CONSOLE_NUM = 200, MAX_DEBUG_NUM = MAX_CONSOLE_NUM * 5, MAX_INFO = 'event: max\ndata: too many connections\n\n'
+var PORT = 10102, PERIOD = 300, MAX_CONSOLE_NUM = 1, MAX_DEBUG_NUM = MAX_CONSOLE_NUM * 5, MAX_INFO = 'event: max\ndata: too many connections\n\n', CONNECTION_TIMEOUT = 5*1000
 
 var msgManager = {},responseQueue = [],consoleQueue = []
 
@@ -53,6 +53,7 @@ app.use('/output', function(req, res){
 app.use('/send_polling', function(req, res){
     var username = req.url.indexOf('?')>-1 && decodeURIComponent(req.url.split('?')[1])
 	if(username){
+        res.socket.setTimeout(CONNECTION_TIMEOUT)
         res.socket.on('close',function(e){
             responseQueue.indexOf(res)>-1 && (responseQueue = responseQueue.filter(function(client){return client != res}))
             //notify the console page when the last debug page is closed
@@ -90,6 +91,7 @@ app.use('/send_polling', function(req, res){
 app.use('/rev_polling', function(req, res){
     var username =  req.url.indexOf('?')>-1 && req.url.split('?')[1]
     if(username){
+        res.socket.setTimeout(CONNECTION_TIMEOUT)
         res.socket.on('close',function(){
             consoleQueue.indexOf(res)>-1 && (consoleQueue = consoleQueue.filter(function(client){return client != res}))
             console.log('console connection closed from : ', res.details.username, '    ', consoleQueue.length,' connection total')

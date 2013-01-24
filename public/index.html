@@ -99,20 +99,25 @@
                     alert('执行脚本和监听用户都不能为空')
                     return
                 }
-                var xhr = new XMLHttpRequest(), form = new FormData()
-                form.append('content', encodeURIComponent(script))
-                xhr.timeout = 5000
-                xhr.addEventListener('load', function(){
-                    $('#output').val('等待远程执行结果返回...')
-                })
-                xhr.addEventListener('timeout', function(e){
-                    alert('请求超时')
-                })
-                xhr.addEventListener('error', function(e){
-                    console.log('请求出错')
-                })
-                xhr.open('POST','./input?' + username, true)
-                xhr.send(form)
+                if(source && source.readyState == source.OPEN){
+                    var xhr = new XMLHttpRequest(), form = new FormData()
+                    form.append('content', encodeURIComponent(script))
+                    xhr.timeout = 5000
+                    xhr.addEventListener('load', function(){
+                        $('#output').val('等待远程执行结果返回...')
+                    })
+                    xhr.addEventListener('timeout', function(e){
+                        alert('请求超时')
+                    })
+                    xhr.addEventListener('error', function(e){
+                        console.log('请求出错')
+                    })
+                    xhr.open('POST','./input?' + username, true)
+                    xhr.send(form)
+                }else{
+                    alert('连接已经被关闭,点击确定刷新页面继续调试')
+                    location.reload()
+                }
             }
 
             /**
