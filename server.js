@@ -8,7 +8,8 @@
 var connect = require('connect')
 var app = connect.createServer(
     connect.bodyParser(),
-	connect.static(__dirname + '/public')
+	connect.static(__dirname + '/public'),
+    connect.static(__dirname + '/tests')
 )
 
 var PORT = 10102, PERIOD = 300, MAX_CONSOLE_NUM = 1, MAX_DEBUG_NUM = MAX_CONSOLE_NUM * 5, MAX_INFO = 'event: max\ndata: too many connections\n\n', CONNECTION_TIMEOUT = 5*1000
@@ -24,7 +25,7 @@ app.use('/input', function(req,res){
 		var info = req.url.split('?'), username = decodeURIComponent(info[1]), msg = decodeURIComponent(req.body.content)
 		msgManager[username] = { content : msg, time : Date.now() }
         console.log('get message from console : ', msg, ' by ', username)
-		res.write(JSON.stringify({ret:0, msg:msgManager[username], username:username}))
+		res.write(JSON.stringify({ret:0, msg:msgManager[username], username:username, openDebug : responseQueue.some(function(item){ return item.details.username == username})}))
 	}catch(e){
 		res.write(JSON.stringify({ret:-2,msg:e.message}))
 	}
