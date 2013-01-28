@@ -14,7 +14,7 @@ var app = connect.createServer(
 
 var PORT = 10102, PERIOD = 300, MAX_CONSOLE_NUM = 1, MAX_DEBUG_NUM = MAX_CONSOLE_NUM * 5, MAX_INFO = 'event: max\ndata: too many connections\n\n', CONNECTION_TIMEOUT = 5*1000
 
-var msgManager = {},responseQueue = [],consoleQueue = []
+var msgManager = {},responseQueue = [],consoleQueue = [], lockedMsg = {}
 
 /**
  * send debug script content to server. request format : /input?simongfxu=console.log(123)
@@ -22,9 +22,9 @@ var msgManager = {},responseQueue = [],consoleQueue = []
 app.use('/input', function(req,res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
 	try{
-		var info = req.url.split('?'), username = decodeURIComponent(info[1]), msg = decodeURIComponent(req.body.content)
-		msgManager[username] = { content : msg, time : Date.now() }
-        console.log('get message from console : ', msg, ' by ', username)
+		var username = decodeURIComponent(req.body.username), content = decodeURIComponent(req.body.content)
+		msgManager[username] = { content : content, time : Date.now() }
+        console.log('get message from console : ', content, ' by ', username)
 		res.write(JSON.stringify({ret:0, msg:msgManager[username], username:username, openDebug : responseQueue.some(function(item){ return item.details.username == username})}))
 	}catch(e){
 		res.write(JSON.stringify({ret:-2,msg:e.message}))
@@ -38,7 +38,7 @@ app.use('/input', function(req,res){
 app.use('/output', function(req, res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
     try{
-        var info = req.url.split('?'), username = decodeURIComponent(info[1]), result = req.body.result
+        var username = decodeURIComponent(req.body.username), result = req.body.result
         msgManager[username].result = result
         console.log('remote execute result : ', result, ' by ', username)
         res.write(JSON.stringify({ret:0,result:result, username:username}))
@@ -48,6 +48,31 @@ app.use('/output', function(req, res){
     res.end()
 })
 
+/**
+ * lock the code, debug page will exec the code once auto
+ */
+app.use('/lock', function(req,res){
+    res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
+    try{
+        var username = req.body.username, content = decodeURIComponent(req.body.content)
+        lockedMsg[username] = content
+        res.write(JSON.stringify({ret:0, content:content, username:username}))
+    }catch(e){
+        res.write(JSON.stringify({ret:-1,msg:e.message}))
+    }
+    res.end()
+})
+
+app.use('/unlock', function(req,res){
+    res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
+    try{
+        delete lockedMsg[req.body.username]
+        res.write(JSON.stringify({ret:0, username:req.body.username}))
+    }catch (e){
+        res.write(JSON.stringify({ret:-1,msg:e.message}))
+    }
+    res.end()
+})
 /**
  * an event stream for mobile page to get the debug script from server push, using postMessage to cross domain in comm.html
 **/
@@ -63,7 +88,7 @@ app.use('/send_polling', function(req, res){
                 consoleQueue.filter(function(client){
                     return client.details.username == username
                 }).forEach(function(client){
-                        client.write('data: No debug page found\n\n')
+                        client.write('event: rest\ndata: No debug page found\n\n')
                 })
             }
             console.log('debug connection closed from : ', username, '    ' ,responseQueue.length, ' connection current')
@@ -76,9 +101,11 @@ app.use('/send_polling', function(req, res){
             consoleQueue.filter(function(client){
                 return client.details.username == username
             }).forEach(function(client){
-                client.write('data: Debug page is ready,try coding now\n\n')
+                client.write('event: ready\ndata: Debug page is ready,try coding now\n\n')
             })
         }
+        //send locked code on the first time
+        lockedMsg[username] && res.write('data: ' + encodeURIComponent(lockedMsg[username]) + '\n\n')
 		responseQueue.push(res)
 		console.log('debug connection created for : ', username, '    ', responseQueue.length,' connection total')
 	}else{

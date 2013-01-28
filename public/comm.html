@@ -28,19 +28,19 @@
                 setTimeout(function(){
                     obj.abort?obj.abort():obj.close()
                     obj = null
-                    alert('Every connection lasts 5 minutes for performance consideration, you can refresh to use')
-                    location.reload()
+                    alert('Every connection lasts 5 minutes for performance consideration, you can refresh to reuse')
                 }, 5*1000*60)
             }
             //send parent's executed result
             W.addEventListener('message', function(e){
                 var xhr = new XMLHttpRequest(), form = new FormData()
+                form.append('username', username)
                 xhr.addEventListener('load', function(){
                     var ret = JSON.parse(this.responseText)
                     console.log(ret.ret == 0?'result has been sent!':('sent fail!!!' + ret.msg))
                 })
                 form.append('result', e.data)
-                xhr.open('POST', './output?' + username,true)
+                xhr.open('POST', './output', true)
                 xhr.send(form)
             })
 
