@@ -1,11 +1,3 @@
-/**
- * DESIGN LIMITATION
- * For every user, one console page can control multi debug pages.
- * But if you open another console page for the same user, the previous console page will be closed.
- * Just because msgManager only stores one script content and remote executed result for one user.
- * You'd better just send comment and real message in responseQueue, because Android does not support EventSource
- * 
- */
 var connect = require('connect')
 var app = connect.createServer(
     connect.bodyParser(),
@@ -19,9 +11,10 @@ var PORT = 10102, //监听端口
     MAX_DEBUG_NUM = MAX_CONSOLE_NUM * 5, //调试页面长连接上限
     MAX_INFO = 'event: max\ndata: too many connections\n\n',
     NO_DEBUG_PAGE = 'event: rest\nNo debug page found\n\n',
+    BE_KICKED = 'event: kicked\ndata: you are kicked by somebody.\n\n',
     CONNECTION_TIMEOUT = 5*1000 //长连接超时间隔,五秒没有消息发送到客户端则关闭连接
 
-var msgManager = {}, //存储所有监听用户的一条运行代码以及对应的执行结果
+var msgManager = {}, //存储所有监听用户的最新一条的运行代码以及对应的执行结果
     responseQueue = [], //存储所有的调试页面的长连接
     consoleQueue = [],  //存储所有控制台页面的长连接
     lockedMsg = {} //存储所有的锁定代码,新请求进入时自动执行一次此代码
@@ -84,7 +77,7 @@ app.use('/unlock', function(req,res){
 app.use('/send_polling', function(req, res){
     var username = req.url.indexOf('?')>-1 && decodeURIComponent(req.url.split('?')[1])
 	if(username){
-        //这一步很重要,EventSource调用close以后服务器可能不会马上响应close事件而是响应默认的超时事件,所以将超时设置为一个较小的值
+        //这一步很重要,EventSource调用close以后服务器可能不会马上响应close事件而是走超时的逻辑,所以将超时设置为一个较小的值让服务器尽快关闭长连接释放资源
         res.socket.setTimeout(CONNECTION_TIMEOUT)
         res.socket.on('close',function(e){
             //从连接队列中移除长连接,如果这是最后一个调试页面则提示控制台页面
@@ -103,7 +96,7 @@ app.use('/send_polling', function(req, res){
         res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
 		res.details = {username:username, requestOn:Date.now(), userAgent:req.headers['user-agent'], ip : req.connection.remoteAddress}
 
-        //如果这是第一个调试页面也通知控制台
+        //如果这是第一个调试页面也通知控制台页面
         if(!responseQueue.some(function(res){return res.details.username == username})){
             consoleQueue.filter(function(client){
                 return client.details.username == username
@@ -119,9 +112,7 @@ app.use('/send_polling', function(req, res){
     }
 })
 
-/**
- * an event stream for console page to get the remote executed result.
- */
+ //index.html 用于获取代码执行结果的长连接
 app.use('/rev_polling', function(req, res){
     var username =  req.url.indexOf('?')>-1 && req.url.split('?')[1]
     if(username){
@@ -130,11 +121,11 @@ app.use('/rev_polling', function(req, res){
             consoleQueue.indexOf(res)>-1 && (consoleQueue = consoleQueue.filter(function(client){return client != res}))
             console.log('console connection closed from : ', res.details.username, '    ', consoleQueue.length,' connection total')
         })
-        //only accepts the latest console, kick out the previous console pages
+        //每个用户只能打开一个控制台页面
         consoleQueue = consoleQueue.filter(function(item){
             if(item.details.username == username){
                 console.log('console connection was kicked out : ', username)
-                item.write('event: kicked\ndata: you are kicked by somebody.\n\n')
+                item.write(BE_KICKED)
                 return false
             }
             return true
@@ -148,9 +139,7 @@ app.use('/rev_polling', function(req, res){
     }
 })
 
-/**
- * manage all the console pages and debug pages
- */
+//监控页面，获取当前所有的长连接以及相关信息
 app.use('/manage', function(req, res){
     res.writeHead(200,{'Content-type':'text/plain','Cache-Control':'no-cache','Connection':'keep-alive'})
     try{
@@ -177,13 +166,9 @@ app.listen(PORT)
 
 console.log('Server is running on port ', PORT)
 
-/**
- * CAUTION
- * 1.avoid sending too much info in the timer.
- * 2.send comment to keep the connection alive, other else the request close event will not trigger immediately
- */
+ //维持长连接必须不断地向页面发送数据，如果长时间不发送数据，服务端会以超时处理关闭该请求。
 ;~function(){
-    //connection number control
+    //连接数控制
     consoleQueue.length > MAX_CONSOLE_NUM && consoleQueue.splice(0,consoleQueue.length - MAX_CONSOLE_NUM).forEach(function(res){
         res.write(MAX_INFO)
     })
@@ -191,9 +176,10 @@ console.log('Server is running on port ', PORT)
         res.write(MAX_INFO)
     })
 
+    //分别向控制台页面和调试页面发送执行结果和运行代码
     responseQueue.forEach(function(client){
         var userInfo = msgManager[client.details.username]
-        //debug page maybe android,encode script content's \n\n for XHR,EventSource has no need to encode
+        //调试页面使用XHR兼容了安卓，需要encode需要运行的代码，否则comm.html无法分析数据（主要是处理\n\n）
         userInfo && userInfo.content ? client.write('data: ' + encodeURIComponent(userInfo.content) + '\n\n'):client.write(': \n\n')
     })
     consoleQueue.forEach(function(res){
@@ -204,6 +190,5 @@ console.log('Server is running on port ', PORT)
         msgManager[key].content = ''
         msgManager[key].result = ''
     }
-    var self = arguments.callee
-    setTimeout(self, PERIOD)
+    setTimeout(arguments.callee, PERIOD)
 }()
