@@ -4,6 +4,7 @@
  * But if you open another console page for the same user, the previous console page will be closed.
  * Just because msgManager only stores one script content and remote executed result for one user.
  * You'd better just send comment and real message in responseQueue, because Android does not support EventSource
+ * 
  */
 var connect = require('connect')
 var app = connect.createServer(
@@ -12,13 +13,20 @@ var app = connect.createServer(
     connect.static(__dirname + '/tests')
 )
 
-var PORT = 10102, PERIOD = 300, MAX_CONSOLE_NUM = 1, MAX_DEBUG_NUM = MAX_CONSOLE_NUM * 5, MAX_INFO = 'event: max\ndata: too many connections\n\n', CONNECTION_TIMEOUT = 5*1000
+var PORT = 10102, //监听端口
+    PERIOD = 300, //服务端任务执行周期
+    MAX_CONSOLE_NUM = 100, //控制台长连接上限
+    MAX_DEBUG_NUM = MAX_CONSOLE_NUM * 5, //调试页面长连接上限
+    MAX_INFO = 'event: max\ndata: too many connections\n\n',
+    NO_DEBUG_PAGE = 'event: rest\nNo debug page found\n\n',
+    CONNECTION_TIMEOUT = 5*1000 //长连接超时间隔,五秒没有消息发送到客户端则关闭连接
 
-var msgManager = {},responseQueue = [],consoleQueue = [], lockedMsg = {}
+var msgManager = {}, //存储所有监听用户的一条运行代码以及对应的执行结果
+    responseQueue = [], //存储所有的调试页面的长连接
+    consoleQueue = [],  //存储所有控制台页面的长连接
+    lockedMsg = {} //存储所有的锁定代码,新请求进入时自动执行一次此代码
 
-/**
- * send debug script content to server. request format : /input?simongfxu=console.log(123)
-**/
+//index.html 发送运行代码, 格式 : /input?simongfxu=console.log(123)
 app.use('/input', function(req,res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
 	try{
@@ -32,9 +40,7 @@ app.use('/input', function(req,res){
 	res.end()
 })
 
-/**
- * send executed result of the debug script to server. request format : /output?simongfxu=undefined
- */
+//comm.html 发送远程执行结果, 格式: request format : /output?simongfxu=undefined
 app.use('/output', function(req, res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
     try{
@@ -48,9 +54,8 @@ app.use('/output', function(req, res){
     res.end()
 })
 
-/**
- * lock the code, debug page will exec the code once auto
- */
+
+//index.html 锁定代码,此用户的新请求将自动执行一次此代码,并返回执行结果给控制台
 app.use('/lock', function(req,res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
     try{
@@ -63,6 +68,7 @@ app.use('/lock', function(req,res){
     res.end()
 })
 
+//index.html 解锁代码
 app.use('/unlock', function(req,res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
     try{
@@ -73,22 +79,22 @@ app.use('/unlock', function(req,res){
     }
     res.end()
 })
-/**
- * an event stream for mobile page to get the debug script from server push, using postMessage to cross domain in comm.html
-**/
+
+//comm.html 用于获取执行脚本的长连接,获取后页面使用postMessage发送到调试页面执行
 app.use('/send_polling', function(req, res){
     var username = req.url.indexOf('?')>-1 && decodeURIComponent(req.url.split('?')[1])
 	if(username){
+        //这一步很重要,EventSource调用close以后服务器可能不会马上响应close事件而是响应默认的超时事件,所以将超时设置为一个较小的值
         res.socket.setTimeout(CONNECTION_TIMEOUT)
         res.socket.on('close',function(e){
+            //从连接队列中移除长连接,如果这是最后一个调试页面则提示控制台页面
             responseQueue.indexOf(res)>-1 && (responseQueue = responseQueue.filter(function(client){return client != res}))
-            //notify the console page when the last debug page is closed
             var username = res.details.username
             if(!responseQueue.some(function(client){return client.details.username == username})){
                 consoleQueue.filter(function(client){
                     return client.details.username == username
                 }).forEach(function(client){
-                        client.write('event: rest\ndata: No debug page found\n\n')
+                        client.write(NO_DEBUG_PAGE)
                 })
             }
             console.log('debug connection closed from : ', username, '    ' ,responseQueue.length, ' connection current')
@@ -96,7 +102,8 @@ app.use('/send_polling', function(req, res){
         //must match : EventSource's response has a MIME type ("text/plain") that is not "text/event-stream". Aborting the connection.
         res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
 		res.details = {username:username, requestOn:Date.now(), userAgent:req.headers['user-agent'], ip : req.connection.remoteAddress}
-        //notify the console page when the first debug page is ready
+
+        //如果这是第一个调试页面也通知控制台
         if(!responseQueue.some(function(res){return res.details.username == username})){
             consoleQueue.filter(function(client){
                 return client.details.username == username
@@ -104,7 +111,6 @@ app.use('/send_polling', function(req, res){
                 client.write('event: ready\ndata: Debug page is ready,try coding now\n\n')
             })
         }
-        //send locked code on the first time
         lockedMsg[username] && res.write('data: ' + encodeURIComponent(lockedMsg[username]) + '\n\n')
 		responseQueue.push(res)
 		console.log('debug connection created for : ', username, '    ', responseQueue.length,' connection total')
