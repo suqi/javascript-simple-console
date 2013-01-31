@@ -5,12 +5,11 @@
     <meta http-equiv="cache-control" content="no-cache, must-revalidate">
 </head>
 <body>
-<!--this page is used for receiving the server push messages-->
 	<script type="text/javascript">
         ;~function(W,D){
             if(parent == W) return
             var username = location.search.slice(1)
-            //TODO local file test
+            //TODO 本地测试
             var post_message = function(msg){
                 console.log('script to run : ' + msg);
                 if(!msg) return
@@ -24,14 +23,14 @@
                 obj.abort?obj.abort():obj.close()
                 console.log('******** server connections exceed max limitation ********')
             }
-            var reload = function(obj){
+            var releaseConnection = function(obj){
                 setTimeout(function(){
                     obj.abort?obj.abort():obj.close()
                     obj = null
                     alert('Every connection lasts 5 minutes for performance consideration, you can refresh to reuse')
                 }, 5*1000*60)
             }
-            //send parent's executed result
+            //发送执行结果
             W.addEventListener('message', function(e){
                 var xhr = new XMLHttpRequest(), form = new FormData()
                 form.append('username', username)
@@ -44,11 +43,10 @@
                 xhr.send(form)
             })
 
+            //安卓不支持EventSource对象,使用XHR
             if(!W.EventSource){
                 alert('EventSource is not support, the replacement is XMLHttpRequest now.')
-                /**
-                 * get the message object from server push message, id,retry,event,data ...
-                 */
+                //获取返回数据,拆分处理
                 var get_message_object = function(piece){
                     var DATA_PREFIX = 'data: ', DATA_PREFIX_LEN = DATA_PREFIX.length,  DATA_SUFFIX = '\n\n', DATA_SUFFIX_LEN = DATA_SUFFIX.length
                     var NAMED_EVENT = 'event: ', NAMED_EVENT_LEN = NAMED_EVENT.length
@@ -63,10 +61,6 @@
                     }
                     return {}
                 }
-                /**
-                 * Android does not support EventSource
-                 * @type {XMLHttpRequest}
-                 */
                 var es = new XMLHttpRequest(), received_len = 0
                 es.addEventListener('progress', function(e){
                     var message = get_message_object(this.responseText.slice(received_len))
@@ -81,7 +75,7 @@
                 es.setRequestHeader('Accept', 'text/event-stream')
                 es.setRequestHeader('Cache-Control', 'no-cache')
                 es.send()
-                reload(es)
+                releaseConnection(es)
                 return
             }
 
@@ -92,7 +86,7 @@
             eventSource.addEventListener('max', function(e){
                 closeConnection(this)
             })
-            reload(eventSource)
+            releaseConnection(eventSource)
         }(window,document)
 	</script>
 </body>

@@ -11,6 +11,7 @@ var PORT = 10102, //监听端口
     MAX_DEBUG_NUM = MAX_CONSOLE_NUM * 5, //调试页面长连接上限
     MAX_INFO = 'event: max\ndata: too many connections\n\n',
     NO_DEBUG_PAGE = 'event: rest\nNo debug page found\n\n',
+    DEBUG_PAGE_READY= 'event: ready\ndata: Debug page is ready,try coding now\n\n',
     BE_KICKED = 'event: kicked\ndata: you are kicked by somebody.\n\n',
     CONNECTION_TIMEOUT = 5*1000 //长连接超时间隔,五秒没有消息发送到客户端则关闭连接
 
@@ -101,7 +102,7 @@ app.use('/send_polling', function(req, res){
             consoleQueue.filter(function(client){
                 return client.details.username == username
             }).forEach(function(client){
-                client.write('event: ready\ndata: Debug page is ready,try coding now\n\n')
+                client.write(DEBUG_PAGE_READY)
             })
         }
         lockedMsg[username] && res.write('data: ' + encodeURIComponent(lockedMsg[username]) + '\n\n')
@@ -179,7 +180,7 @@ console.log('Server is running on port ', PORT)
     //分别向控制台页面和调试页面发送执行结果和运行代码
     responseQueue.forEach(function(client){
         var userInfo = msgManager[client.details.username]
-        //调试页面使用XHR兼容了安卓，需要encode需要运行的代码，否则comm.html无法分析数据（主要是处理\n\n）
+        //调试页面使用XHR兼容了安卓，encode需要运行的代码，主要是处理\n\n
         userInfo && userInfo.content ? client.write('data: ' + encodeURIComponent(userInfo.content) + '\n\n'):client.write(': \n\n')
     })
     consoleQueue.forEach(function(res){

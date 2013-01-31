@@ -1,9 +1,10 @@
 {
     "name": "javascript-simple-console",
     "description": "a console target for mobile debug usage",
-    "version": "0.2.0",
-    "private": false,
+    "author": "simongfxu <xugaofan@gmail.com>",
+    "version": "0.4.0",
     "dependencies": {
         "connect": "2.7.2"
-    }
+    },
+    "repository": "https://github.com/simongfxu/javascript-simple-console.git"
 }

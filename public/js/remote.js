@@ -5,9 +5,7 @@
     iframe.style.display = 'none'
     iframe.src = srcInfo.replace('js/remote.js','comm.html')
     D.body.appendChild(iframe)
-    D.title = 'Debugging Mode Works'
-
-
+    D.title = 'JavaScript Simple Console Works!'
 
     //thanks to jsconsole.com
     function sortci(a, b) {
