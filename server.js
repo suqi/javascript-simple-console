@@ -95,7 +95,7 @@ app.use('/send_polling', function(req, res){
         })
         //must match : EventSource's response has a MIME type ("text/plain") that is not "text/event-stream". Aborting the connection.
         res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
-		res.details = {username:username, requestOn:Date.now(), userAgent:req.headers['user-agent'], ip : req.connection.remoteAddress}
+		res.details = {username:username, requestOn:Date.now(), userAgent:req.headers['user-agent'], ip : req.headers['x-forwarded-for'] || req.connection.remoteAddress}
 
         //如果这是第一个调试页面也通知控制台页面
         if(!responseQueue.some(function(res){return res.details.username == username})){
@@ -132,7 +132,7 @@ app.use('/rev_polling', function(req, res){
             return true
         })
         res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
-        res.details = {username:username, requestOn: Date.now(), ip : req.connection.remoteAddress}
+        res.details = {username:username, requestOn: Date.now(), ip : req.headers['x-forwarded-for'] || req.connection.remoteAddress}
         consoleQueue.push(res)
         console.log('console connection created for : ', username, '    ', consoleQueue.length, ' connection total')
     }else{
