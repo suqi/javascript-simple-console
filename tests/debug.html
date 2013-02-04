@@ -16,6 +16,7 @@
             <h1 id="title">调试页面</h1>
         </header>
         <h4>在控制台页面输入脚本,脚本将会在此页面执行,并将执行结果返回给控制台页面</h4>
+        <h4>现在可以在生产环境中使用JavaScript Simple Console了,使用方式看页面源码!</h4>
     </div>
     <script type="text/javascript" src="../js/jquery.js"></script>
     <script type="text/javascript">
@@ -27,7 +28,8 @@
             }
             var script = document.createElement('script')
             script.src = '../js/remote.js?simongfxu'
-            //script.src = '../js/remote.js?production#title'
+            //script.src = '../js/remote.js?production#title' 监听id为title元素的touch事件来启动调试脚本
+            //script.src = '../js/remote.js?production' 监听document的touch事件来启动调试脚本
             document.body.appendChild(script)
         })
     </script>
