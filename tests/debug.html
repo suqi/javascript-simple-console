@@ -6,17 +6,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="format-detection" content="telephone=no" />
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>调试页面 - JavaScript Simple Console</title>
+    <title>调试DEMO与使用说明 - JavaScript Simple Console</title>
     <link rel="stylesheet" href="../css/g.css">
     <link rel="stylesheet" href="../cm/codemirror.css">
 </head>
 <body>
     <div id="wrapper">
         <header>
-            <h1 id="title">调试页面</h1>
+            <h1 id="title">调试DEMO与使用说明</h1>
         </header>
-        <h4>在控制台页面输入脚本,脚本将会在此页面执行,并将执行结果返回给控制台页面</h4>
-        <h4>现在可以在生产环境中使用JavaScript Simple Console了,使用方式看页面源码!</h4>
+        <div id="desc">
+            <strong>如果是测试环境,只需要在调试页面引入以下脚本即可</strong>
+            <p>
+                &lt;script src="http://<script>document.write(location.host)</script>/js/remote.js?<span id="rtx"></span>"&gt;&lt;/script&gt;</em>
+            </p>
+            <strong>如果是生产环境,首先在需要调试的页面引入以下脚本</strong>
+            <p>
+                &lt;script src="http://<script>document.write(location.host)</script>/js/remote.js?production"&gt;&lt;/script&gt;</em>
+            </p>
+            <strong>然后打开调试页面长按屏幕20秒松开,在弹出的提示输入框中输入</strong>
+            <p>
+                ":listen username"   (用户名必须为英文或者数字,长度必须大于四)
+            </p>
+            <strong>默认是在document上监听touch事件启动调试模式,你可以通过如下方式更改监听事件的对象</strong>
+            <p>
+                &lt;script src="http://<script>document.write(location.host)</script>/js/remote.js?production#container"&gt;&lt;/script&gt;</em>
+            </p>
+            <strong>这样长按id为container的节点20秒后松开,输入相应的信息即可</strong>
+        </div>
     </div>
     <script type="text/javascript" src="../js/jquery.js"></script>
     <script type="text/javascript">
@@ -26,10 +43,9 @@
                 alert('监听用户为空')
                 return
             }
+            $('#rtx').text(username)
             var script = document.createElement('script')
-            script.src = '../js/remote.js?simongfxu'
-            //script.src = '../js/remote.js?production#title' 监听id为title元素的touch事件来启动调试脚本
-            //script.src = '../js/remote.js?production' 监听document的touch事件来启动调试脚本
+            script.src = '../js/remote.js?' + username
             document.body.appendChild(script)
         })
     </script>

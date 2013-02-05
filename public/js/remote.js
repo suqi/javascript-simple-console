@@ -1,8 +1,4 @@
 ;~function(W,D){
-    /**
-     * development : jsconsole.qq.com/js/remote.js?simongfxu
-     * production : jsconsole.qq.com/js/remote.js?production#wrapper
-     */
     var scripts = D.querySelectorAll('script'), src = scripts[scripts.length-1].src, anchor = D.createElement('a'), username
     anchor.href = src
 
@@ -14,7 +10,7 @@
         D.body.appendChild(iframe)
         D.title = 'JavaScript Simple Console Works!'
 
-        //thanks to jsconsole.com
+        //thanks to http://jsconsole.com
         function sortci(a, b) {
             return a.toLowerCase() < b.toLowerCase() ? -1 : 1;
         }
@@ -115,7 +111,7 @@
 
     //监听用户,测试环境在页面自己输入,生产环境需要用户输入QQ号
     if(anchor.search == '?production'){
-        var listenNode = anchor.hash?D.querySelector(anchor.hash):D, tStart, tEnd, hasEverMoved = false, bind = false, tapTime = 10*1000
+        var listenNode = anchor.hash?D.querySelector(anchor.hash):D, tStart, tEnd, hasEverMoved = false, bind = false, tapTime = 20*1000
         var listeners = {
             start : function(e){
                 tStart = Date.now()
@@ -126,9 +122,9 @@
             end : function(e){
                 tEnd = Date.now()
                 if( !hasEverMoved && (tEnd - tStart >= tapTime) && !bind){
+                    //:listen username
                     var text = W.prompt('','') || '', username = text.indexOf(':listen ') == 0?text.replace(':listen ',''):''
-                    username.length > 4 && goDebug(username)
-                    bind = true
+                    username.length > 4 && (bind = true) && goDebug(username)
                 }
                 hasEverMoved = false
                 tStart = null

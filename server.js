@@ -20,32 +20,50 @@ var msgManager = {}, //存储所有监听用户的最新一条的运行代码以
     consoleQueue = [],  //存储所有控制台页面的长连接
     lockedMsg = {} //存储所有的锁定代码,新请求进入时自动执行一次此代码
 
+//向控制台发送通知消息,第一个调试页面打开和最后一个调试页面关闭
+var notifySpecConsole = function(username,msg){
+    if(!responseQueue.some(function(client){return client.details.username == username})){
+        for(var i =0;i<consoleQueue.length;i++){
+            if(consoleQueue[i].details.username == username){
+                consoleQueue[i].write(msg)
+                break
+            }
+        }
+    }
+}
+
+//控制连接数,剔除最早进入的用户
+var checkConnections = function(){
+    consoleQueue.length > MAX_CONSOLE_NUM && consoleQueue.splice(0,consoleQueue.length - MAX_CONSOLE_NUM).forEach(function(res){
+        res.write(MAX_INFO)
+    })
+    responseQueue.length > MAX_DEBUG_NUM && responseQueue.splice(0,responseQueue.length - MAX_DEBUG_NUM).forEach(function(res){
+        res.write(MAX_INFO)
+    })
+}
+
 //index.html 发送运行代码, 格式 : /input?simongfxu=console.log(123)
 app.use('/input', function(req,res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
 	try{
-		var username = decodeURIComponent(req.body.username), content = decodeURIComponent(req.body.content)
+		var username = req.body.username, content = decodeURIComponent(req.body.content)
 		msgManager[username] = { content : content, time : Date.now() }
-        console.log('get message from console : ', content, ' by ', username)
-		res.write(JSON.stringify({ret:0, msg:msgManager[username], username:username, openDebug : responseQueue.some(function(item){ return item.details.username == username})}))
+		res.end(JSON.stringify({ret:0, msg:msgManager[username], username:username, openDebug : responseQueue.some(function(item){ return item.details.username == username})}))
 	}catch(e){
-		res.write(JSON.stringify({ret:-2,msg:e.message}))
+		res.end(JSON.stringify({ret:1, msg:e.message}))
 	}
-	res.end()
 })
 
 //comm.html 发送远程执行结果, 格式: request format : /output?simongfxu=undefined
 app.use('/output', function(req, res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
     try{
-        var username = decodeURIComponent(req.body.username), result = req.body.result
+        var username = req.body.username, result = req.body.result
         msgManager[username].result = result
-        console.log('remote execute result : ', result, ' by ', username)
-        res.write(JSON.stringify({ret:0,result:result, username:username}))
+        res.end(JSON.stringify({ret:0,result:result, username:username}))
     }catch(e){
-        res.write(JSON.stringify({ret:-1,msg:e.message}))
+        res.end(JSON.stringify({ret:1,msg:e.message}))
     }
-    res.end()
 })
 
 
@@ -55,11 +73,10 @@ app.use('/lock', function(req,res){
     try{
         var username = req.body.username, content = decodeURIComponent(req.body.content)
         lockedMsg[username] = content
-        res.write(JSON.stringify({ret:0, content:content, username:username}))
+        res.end(JSON.stringify({ret:0, content:content, username:username}))
     }catch(e){
-        res.write(JSON.stringify({ret:-1,msg:e.message}))
+        res.end(JSON.stringify({ret:1,msg:e.message}))
     }
-    res.end()
 })
 
 //index.html 解锁代码
@@ -67,44 +84,28 @@ app.use('/unlock', function(req,res){
     res.writeHead(200, {'Content-Type':'text/javascript','Cache-Control':'no-cache'})
     try{
         delete lockedMsg[req.body.username]
-        res.write(JSON.stringify({ret:0, username:req.body.username}))
+        res.end(JSON.stringify({ret:0, username:req.body.username}))
     }catch (e){
-        res.write(JSON.stringify({ret:-1,msg:e.message}))
+        res.end(JSON.stringify({ret:1,msg:e.message}))
     }
-    res.end()
 })
 
 //comm.html 用于获取执行脚本的长连接,获取后页面使用postMessage发送到调试页面执行
 app.use('/send_polling', function(req, res){
-    var username = req.url.indexOf('?')>-1 && decodeURIComponent(req.url.split('?')[1])
+    var username = req.url.indexOf('?')>-1 && req.url.split('?')[1]
 	if(username){
         //这一步很重要,EventSource调用close以后服务器可能不会马上响应close事件而是走超时的逻辑,所以将超时设置为一个较小的值让服务器尽快关闭长连接释放资源
         res.socket.setTimeout(CONNECTION_TIMEOUT)
         res.socket.on('close',function(e){
-            //从连接队列中移除长连接,如果这是最后一个调试页面则提示控制台页面
-            responseQueue.indexOf(res)>-1 && (responseQueue = responseQueue.filter(function(client){return client != res}))
-            var username = res.details.username
-            if(!responseQueue.some(function(client){return client.details.username == username})){
-                consoleQueue.filter(function(client){
-                    return client.details.username == username
-                }).forEach(function(client){
-                        client.write(NO_DEBUG_PAGE)
-                })
-            }
-            console.log('debug connection closed from : ', username, '    ' ,responseQueue.length, ' connection current')
+            var id = res.details.username
+            //从连接队列中移除长连接
+            responseQueue.indexOf(res) !=-1 && responseQueue.splice(responseQueue.indexOf(res), 1)
+            notifySpecConsole(id, NO_DEBUG_PAGE)
+            console.log('debug connection closed from : ', id, '    ' ,responseQueue.length, ' connection current')
         })
-        //must match : EventSource's response has a MIME type ("text/plain") that is not "text/event-stream". Aborting the connection.
         res.writeHead(200, {'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'})
 		res.details = {username:username, requestOn:Date.now(), userAgent:req.headers['user-agent'], ip : req.headers['x-forwarded-for'] || req.connection.remoteAddress}
-
-        //如果这是第一个调试页面也通知控制台页面
-        if(!responseQueue.some(function(res){return res.details.username == username})){
-            consoleQueue.filter(function(client){
-                return client.details.username == username
-            }).forEach(function(client){
-                client.write(DEBUG_PAGE_READY)
-            })
-        }
+        notifySpecConsole(username, DEBUG_PAGE_READY)
         lockedMsg[username] && res.write('data: ' + encodeURIComponent(lockedMsg[username]) + '\n\n')
 		responseQueue.push(res)
 		console.log('debug connection created for : ', username, '    ', responseQueue.length,' connection total')
@@ -119,13 +120,12 @@ app.use('/rev_polling', function(req, res){
     if(username){
         res.socket.setTimeout(CONNECTION_TIMEOUT)
         res.socket.on('close',function(){
-            consoleQueue.indexOf(res)>-1 && (consoleQueue = consoleQueue.filter(function(client){return client != res}))
+            consoleQueue.indexOf(res) != -1 && consoleQueue.splice(consoleQueue.indexOf(res), 1)
             console.log('console connection closed from : ', res.details.username, '    ', consoleQueue.length,' connection total')
         })
         //每个用户只能打开一个控制台页面
         consoleQueue = consoleQueue.filter(function(item){
             if(item.details.username == username){
-                console.log('console connection was kicked out : ', username)
                 item.write(BE_KICKED)
                 return false
             }
@@ -151,12 +151,10 @@ app.use('/manage', function(req, res){
         responseQueue.forEach(function(client){
             ret.client.push({'username':client.details.username, 'userAgent' : client.details.userAgent,'ip':client.details.ip})
         })
-        res.write(JSON.stringify(ret))
+        res.end(JSON.stringify(ret))
     }catch (e){
-        console.log(e)
-        res.write(JSON.stringify({ret:-1, msg:e.message}))
+        res.end(JSON.stringify({ret:-1, msg:e.message}))
     }
-    res.end()
 })
 
 app.use(function(req,res){
@@ -169,27 +167,20 @@ console.log('Server is running on port ', PORT)
 
  //维持长连接必须不断地向页面发送数据，如果长时间不发送数据，服务端会以超时处理关闭该请求。
 ;~function(){
-    //连接数控制
-    consoleQueue.length > MAX_CONSOLE_NUM && consoleQueue.splice(0,consoleQueue.length - MAX_CONSOLE_NUM).forEach(function(res){
-        res.write(MAX_INFO)
-    })
-    responseQueue.length > MAX_DEBUG_NUM && responseQueue.splice(0,responseQueue.length - MAX_DEBUG_NUM).forEach(function(res){
-        res.write(MAX_INFO)
-    })
-
+    checkConnections()
     //分别向控制台页面和调试页面发送执行结果和运行代码
     responseQueue.forEach(function(client){
-        var userInfo = msgManager[client.details.username]
+        var info = msgManager[client.details.username]
         //调试页面使用XHR兼容了安卓，encode需要运行的代码，主要是处理\n\n
-        userInfo && userInfo.content ? client.write('data: ' + encodeURIComponent(userInfo.content) + '\n\n'):client.write(': \n\n')
+        info && info.content ? client.write('data: ' + encodeURIComponent(info.content) + '\n\n'):client.write(': \n\n')
     })
     consoleQueue.forEach(function(res){
-        var userInfo = msgManager[res.details.username]
-        userInfo && userInfo.result ? res.write('data: ' + userInfo.result + '\n\n'):res.write(': \n\n')
+        var info = msgManager[res.details.username]
+        info && info.result ? res.write('data: ' + info.result + '\n\n'):res.write(': \n\n')
     })
     for(var key in msgManager){
-        msgManager[key].content = ''
-        msgManager[key].result = ''
+        delete msgManager[key].content
+        delete msgManager[key].result
     }
     setTimeout(arguments.callee, PERIOD)
 }()
