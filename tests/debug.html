@@ -20,20 +20,23 @@
             <p>
                 &lt;script src="http://<script>document.write(location.host)</script>/js/remote.js?<span id="rtx"></span>"&gt;&lt;/script&gt;</em>
             </p>
-            <strong>如果是生产环境,首先在需要调试的页面引入以下脚本</strong>
+            <strong>如果是生产环境,引入脚本和开启调试方式有所不同,引入脚本方式如下:</strong>
             <p>
                 &lt;script src="http://<script>document.write(location.host)</script>/js/remote.js?production"&gt;&lt;/script&gt;</em>
             </p>
-            <strong>然后打开调试页面长按屏幕20秒松开,在弹出的提示输入框中输入</strong>
+            <strong>开启调试需要打开调试页面按住屏幕20秒不动,然后松开,在弹出的提示输入框中输入双引号内的文字</strong>
             <p>
-                ":listen username"   (用户名必须为英文或者数字,长度必须大于四)
+                ":listen yourRtxName"   (用户名必须为英文或者数字,长度必须大于四)
             </p>
             <strong>默认是在document上监听touch事件启动调试模式,你可以通过如下方式更改监听事件的对象</strong>
             <p>
                 &lt;script src="http://<script>document.write(location.host)</script>/js/remote.js?production#container"&gt;&lt;/script&gt;</em>
             </p>
-            <strong>这样长按id为container的节点20秒后松开,输入相应的信息即可</strong>
+            <strong>这样长按操作就转移到id为container的节点</strong>
         </div>
+        <footer>
+            <strong>点<a href="javascript:;" id="make_code">此处</a>生成二维码,拿出手机扫一扫,避免苦逼的输入URL</strong>
+        </footer>
     </div>
     <script type="text/javascript" src="../js/jquery.js"></script>
     <script type="text/javascript">
@@ -47,6 +50,11 @@
             var script = document.createElement('script')
             script.src = '../js/remote.js?' + username
             document.body.appendChild(script)
+
+            $('#make_code').on('click', function(){
+                //by qiganghuang
+                ~function(D){var l=window.location.href,u=encodeURIComponent(l),h=D.createElement('div');h.setAttribute('style','position:fixed;top:10px;left:10px;z-index:9999;');h.title=l;h.innerHTML='<img style="border:1px solid gray" src="http://chart.apis.google.com/chart?chs=200x200&cht=qr&chld=L|1&chl='+u+'" />';h.onclick=function(){D.body.removeChild(this)};D.body.appendChild(h);}(document),void(0)
+            })
         })
     </script>
 </body>

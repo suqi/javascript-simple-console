@@ -1,7 +1,7 @@
 var username = location.search && encodeURIComponent(location.search.slice(1)), source
 $(function(){
     if(!username){
-        $('#wrapper').html('<p>请在url上附加监听的用户,形式:?你的RTX名称</p>')
+        $('#wrapper').html('<strong>请在url上附加监听的用户,方式如下:</strong><p><a href="http://jsconsole.kf0309.3g.qq.com/?yourRtxName">http://jsconsole.kf0309.3g.qq.com/?yourRtxName</a></p>')
         return
     }
     $('#debug').attr('href', 'debug.html?' + username)
